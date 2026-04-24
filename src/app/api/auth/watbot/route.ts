@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { SignJWT } from 'jose'
 
 const JWT_SECRET = process.env.JWT_SECRET ?? ''
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://fitness-dating-6o42.vercel.app'
+const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://fitness-dating-6o42.vercel.app').replace(/\/$/, '')
 
 // WATBOT сценарий вызывает этот эндпоинт с telegram_id пользователя.
 // Мы возвращаем готовую ссылку для открытия приложения.
