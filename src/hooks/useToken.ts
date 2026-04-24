@@ -90,8 +90,27 @@ export function useToken() {
       return
     }
 
-    // Ничего не нашли
-    setLoading(false)
+    // Способ 4: гостевая UUID-сессия (браузер без Telegram)
+    const STORAGE_KEY = 'fitMatch_guest_id'
+    let guestId = localStorage.getItem(STORAGE_KEY)
+    if (!guestId) {
+      guestId = `guest_${crypto.randomUUID()}`
+      localStorage.setItem(STORAGE_KEY, guestId)
+    }
+    fetch('/api/auth/guest', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ guest_id: guestId }),
+    })
+      .then((res) => res.json())
+      .then((data: { token?: string; userId?: string; error?: string }) => {
+        if (data.token && data.userId) {
+          setAuth(data.token, data.userId)
+        } else {
+          setError(data.error ?? 'Ошибка авторизации')
+        }
+      })
+      .catch(() => setError('Нет соединения с сервером'))
   }, [token, setAuth, setLoading, setError])
 
   return { token, userId, loading, error }

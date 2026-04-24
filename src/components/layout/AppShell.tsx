@@ -27,21 +27,5 @@ export function AppShell({ children }: Props) {
     )
   }
 
-  if (!token || !userId) {
-    const urlParams = typeof window !== 'undefined'
-      ? window.location.search
-      : '(SSR)'
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center p-8 text-center">
-        <div className="mb-4 text-4xl">🏋️</div>
-        <h1 className="mb-2 text-xl font-bold text-brand-text">FitMatch</h1>
-        <p className="text-brand-text-muted">Откройте приложение через бота</p>
-        <p className="mt-4 text-xs text-brand-text-muted break-all opacity-50">
-          URL params: {urlParams || '(пусто)'}
-        </p>
-      </div>
-    )
-  }
-
   return <>{children}</>
 }
