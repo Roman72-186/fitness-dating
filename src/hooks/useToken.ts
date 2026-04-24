@@ -26,12 +26,12 @@ function parseJwtPayload(token: string): { sub?: string } | null {
 }
 
 export function useToken() {
-  const { token, userId, setAuth } = useAuthStore()
+  const { token, userId, loading, error, setAuth, setLoading, setError } = useAuthStore()
 
   useEffect(() => {
     if (token) return
 
-    // Способ 1: JWT из URL ?token= (WATBOT передаёт при открытии)
+    // Способ 1: JWT из ?token= (WATBOT передаёт при открытии)
     const urlToken = parseTokenFromUrl()
     if (urlToken) {
       const payload = parseJwtPayload(urlToken)
@@ -44,7 +44,7 @@ export function useToken() {
       }
     }
 
-    // Способ 2: Telegram WebApp initData (стандартный Mini App)
+    // Способ 2: Telegram WebApp initData
     const tg = window.Telegram?.WebApp
     if (tg?.initData) {
       tg.ready()
@@ -56,14 +56,21 @@ export function useToken() {
         body: JSON.stringify({ initData: tg.initData }),
       })
         .then((res) => res.json())
-        .then((data: { token?: string; userId?: string }) => {
+        .then((data: { token?: string; userId?: string; error?: string }) => {
           if (data.token && data.userId) {
             setAuth(data.token, data.userId)
+          } else {
+            setError(data.error ?? 'Ошибка авторизации')
           }
         })
-        .catch(() => {})
-    }
-  }, [token, setAuth])
+        .catch(() => setError('Нет соединения с сервером'))
 
-  return { token, userId }
+      return
+    }
+
+    // Нет ни токена, ни initData — не в Telegram
+    setLoading(false)
+  }, [token, setAuth, setLoading, setError])
+
+  return { token, userId, loading, error }
 }
