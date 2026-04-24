@@ -7,7 +7,7 @@ interface Props {
 }
 
 export function AppShell({ children }: Props) {
-  const { token, userId, loading, error } = useToken()
+  const { loading, error } = useToken()
 
   if (loading) {
     return (
