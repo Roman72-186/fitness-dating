@@ -37,7 +37,8 @@ export async function POST(req: NextRequest) {
   const { targetId, action } = parsed.data
 
   try {
-    await writeView(userId, targetId)
+    const isGuest = userId.startsWith('guest_')
+    if (!isGuest) await writeView(userId, targetId)
     await invalidateFeedCache(userId)
 
     if (action === 'skip') {

@@ -130,7 +130,6 @@ export function FeedScreen() {
                 profile={top}
                 onLike={handleLike}
                 onSkip={handleSkip}
-                isTop
               />
             </motion.div>
           )}
