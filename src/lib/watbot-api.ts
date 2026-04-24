@@ -73,7 +73,7 @@ async function addListItem(
 async function getAllPages(
   schemaId: string,
   filters: Record<string, string> = {},
-  limit = 100
+  limit = 500
 ): Promise<Record<string, unknown>[]> {
   const all: Record<string, unknown>[] = []
   let page = 1

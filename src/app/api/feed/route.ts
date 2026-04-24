@@ -11,35 +11,28 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // Пробуем получить кэшированный список ID анкет
+    const isGuest = userId.startsWith('guest_')
+
+    // Сначала проверяем кэш — если попали, отдаём без лишних WATBOT-запросов
     const cachedIds = await getCachedFeed(userId)
-
-    // Загружаем профиль текущего пользователя (null для гостей)
-    const me = await fetchProfile(userId)
-
     if (cachedIds && cachedIds.length > 0) {
-      // Возвращаем первые 10 из кэша
-      const pageIds = cachedIds.slice(0, 10)
       const allProfiles = await fetchAllProfiles()
       const profileMap = new Map(allProfiles.map((p) => [p.user_id, p]))
-      const profiles = pageIds.map((id) => profileMap.get(id)).filter(Boolean)
-
-      return NextResponse.json({
-        profiles,
-        hasMore: cachedIds.length > 10,
-      })
+      const profiles = cachedIds.slice(0, 10).map((id) => profileMap.get(id)).filter(Boolean)
+      return NextResponse.json({ profiles, hasMore: cachedIds.length > 10 })
     }
 
-    // Загружаем все анкеты и просмотренные ID
-    const [allProfiles, viewedIds] = await Promise.all([
+    // Кэш пуст — грузим всё параллельно
+    // Гости: профиль и просмотры в WATBOT не запрашиваем
+    const [allProfiles, me, viewedIds] = await Promise.all([
       fetchAllProfiles(),
-      fetchViewedIds(userId),
+      isGuest ? Promise.resolve(null) : fetchProfile(userId),
+      isGuest ? Promise.resolve(new Set<string>()) : fetchViewedIds(userId),
     ])
 
     const feed = buildFeed(allProfiles, me, viewedIds)
     const feedIds = feed.map((p) => p.user_id)
 
-    // Кэшируем список ID
     await setCachedFeed(userId, feedIds)
 
     return NextResponse.json({
