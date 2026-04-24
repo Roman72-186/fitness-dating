@@ -45,8 +45,13 @@ async function getListItems(
     }),
   })
 
-  if (!res.ok) throw new Error(`WATBOT getListItems ${schemaId}: HTTP ${res.status}`)
-  const json = await res.json()
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    console.error(`[WATBOT] getListItems ${schemaId} HTTP ${res.status}:`, text.slice(0, 300))
+    throw new Error(`WATBOT getListItems ${schemaId}: HTTP ${res.status}`)
+  }
+  const json = await res.json() as { data?: unknown; meta?: unknown }
+  console.log(`[WATBOT] getListItems schema=${schemaId} page=${page} items=${(json.data as unknown[])?.length ?? 0} meta=`, json.meta)
   return (json.data ?? []) as Record<string, unknown>[]
 }
 
@@ -93,14 +98,22 @@ export async function fetchAllProfiles(): Promise<Profile[]> {
   const profiles: Profile[] = []
   const seen = new Set<string>()
 
+  let parseErrors = 0
   for (const item of raw) {
     const result = ProfileRawSchema.safeParse(item)
-    if (!result.success) continue
+    if (!result.success) {
+      parseErrors++
+      if (parseErrors <= 3) {
+        console.error('[WATBOT] ProfileRawSchema parse error:', JSON.stringify(result.error.issues), 'item:', JSON.stringify(item).slice(0, 200))
+      }
+      continue
+    }
     if (seen.has(result.data.id_tg)) continue
     seen.add(result.data.id_tg)
     profiles.push(rawToProfile(result.data))
   }
 
+  console.log(`[WATBOT] fetchAllProfiles: raw=${raw.length} parsed=${profiles.length} errors=${parseErrors}`)
   return profiles
 }
 
