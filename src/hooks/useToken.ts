@@ -31,7 +31,31 @@ export function useToken() {
   useEffect(() => {
     if (token) return
 
-    // Способ 1: JWT из ?token= (WATBOT передаёт при открытии)
+    // Способ 1: ?telegram_id= из URL (WATBOT передаёт как параметр ссылки)
+    const params = new URLSearchParams(window.location.search)
+    const telegramId = params.get('telegram_id')
+    if (telegramId && /^\d+$/.test(telegramId)) {
+      fetch('/api/auth/by-id', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ telegram_id: telegramId }),
+      })
+        .then((res) => res.json())
+        .then((data: { token?: string; userId?: string; error?: string }) => {
+          if (data.token && data.userId) {
+            setAuth(data.token, data.userId)
+            const url = new URL(window.location.href)
+            url.searchParams.delete('telegram_id')
+            window.history.replaceState({}, '', url.toString())
+          } else {
+            setError(data.error ?? 'Ошибка авторизации')
+          }
+        })
+        .catch(() => setError('Нет соединения с сервером'))
+      return
+    }
+
+    // Способ 2: ?token= из URL (прямой JWT, например для dev-тестирования)
     const urlToken = parseTokenFromUrl()
     if (urlToken) {
       const payload = parseJwtPayload(urlToken)
@@ -44,12 +68,11 @@ export function useToken() {
       }
     }
 
-    // Способ 2: Telegram WebApp initData
+    // Способ 3: Telegram WebApp initData (стандартный Mini App через BotFather)
     const tg = window.Telegram?.WebApp
     if (tg?.initData) {
       tg.ready()
       tg.expand()
-
       fetch('/api/auth/telegram', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -64,11 +87,10 @@ export function useToken() {
           }
         })
         .catch(() => setError('Нет соединения с сервером'))
-
       return
     }
 
-    // Нет ни токена, ни initData — не в Telegram
+    // Ничего не нашли
     setLoading(false)
   }, [token, setAuth, setLoading, setError])
 
