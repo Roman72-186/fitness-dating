@@ -14,7 +14,10 @@ const nextConfig = {
         protocol: 'https',
         hostname: '**.cloudinary.com',
       },
-      // Добавить домен хранилища фото WATBOT при необходимости
+      {
+        protocol: 'https',
+        hostname: 'storage.watbot.ru',
+      },
     ],
   },
 }
