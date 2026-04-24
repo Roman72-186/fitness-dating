@@ -14,11 +14,8 @@ export async function GET(req: NextRequest) {
     // Пробуем получить кэшированный список ID анкет
     const cachedIds = await getCachedFeed(userId)
 
-    // Загружаем профиль текущего пользователя
+    // Загружаем профиль текущего пользователя (null для гостей)
     const me = await fetchProfile(userId)
-    if (!me) {
-      return NextResponse.json({ error: 'Профиль не найден' }, { status: 404 })
-    }
 
     if (cachedIds && cachedIds.length > 0) {
       // Возвращаем первые 10 из кэша

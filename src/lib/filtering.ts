@@ -15,14 +15,17 @@ function matchesPreference(candidate: Profile, me: Profile): boolean {
 }
 
 // 3-уровневая приоритизация (training_time отсутствует в реальных данных)
-// tier1 — тот же клуб
-// tier2 — тот же город
-// tier3 — все остальные
+// tier1 — тот же клуб, tier2 — тот же город, tier3 — все остальные
+// me=null — гостевой режим: все активные профили без фильтрации
 export function buildFeed(
   allProfiles: Profile[],
-  me: Profile,
+  me: Profile | null,
   viewedIds: Set<string>
 ): Profile[] {
+  if (!me) {
+    return shuffle(allProfiles.filter((p) => p.active && !viewedIds.has(p.user_id)))
+  }
+
   const candidates = allProfiles.filter(
     (p) =>
       p.user_id !== me.user_id &&
