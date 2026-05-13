@@ -10,25 +10,25 @@ import { useSwipe } from '@/hooks/useSwipe'
 function MatchModal({ onClose }: { onClose: () => void }) {
   return (
     <motion.div
-      className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-6"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       onClick={onClose}
     >
       <motion.div
-        className="bg-brand-bg-2 rounded-3xl p-8 text-center max-w-xs w-full border border-brand-accent"
+        className="w-full max-w-xs rounded-3xl border border-brand-accent bg-brand-bg-2 p-8 text-center"
         initial={{ scale: 0.5 }}
         animate={{ scale: 1 }}
         exit={{ scale: 0.5 }}
-        onClick={(e) => e.stopPropagation()}
+        onClick={(event) => event.stopPropagation()}
       >
-        <div className="text-5xl mb-3">🎉</div>
-        <h2 className="text-2xl font-bold text-brand-text mb-2">Мэтч!</h2>
-        <p className="text-brand-text-muted mb-6">Вы понравились друг другу</p>
+        <div className="mb-3 text-5xl">🎉</div>
+        <h2 className="mb-2 text-2xl font-bold text-brand-text">Мэтч!</h2>
+        <p className="mb-6 text-brand-text-muted">Вы понравились друг другу</p>
         <button
           onClick={onClose}
-          className="w-full py-3 rounded-xl bg-brand-accent text-brand-bg font-bold"
+          className="w-full rounded-xl bg-brand-accent py-3 font-bold text-brand-bg"
         >
           Продолжить
         </button>
@@ -37,36 +37,48 @@ function MatchModal({ onClose }: { onClose: () => void }) {
   )
 }
 
-
 export function FeedScreen() {
-  const { profiles, loading, error, hasMore, refresh, removeTop } = useFeed()
+  const { profiles, loading, error, refresh, advanceAfterSwipe } = useFeed()
   const [showMatch, setShowMatch] = useState(false)
   const [busy, setBusy] = useState(false)
 
   const top = profiles[0]
-  const { like, skip } = useSwipe(top?.user_id ?? '', useCallback((isMatch: boolean) => {
-    setBusy(false)
-    removeTop()
-    if (isMatch) setShowMatch(true)
-  }, [removeTop]))
+
+  const handleActionDone = useCallback(({ ok, isMatch }: { ok: boolean; isMatch: boolean }) => {
+    if (!ok) {
+      setBusy(false)
+      return
+    }
+
+    void (async () => {
+      const advanced = await advanceAfterSwipe()
+      setBusy(false)
+
+      if (advanced && isMatch) {
+        setShowMatch(true)
+      }
+    })()
+  }, [advanceAfterSwipe])
+
+  const { like, skip } = useSwipe(top?.user_id ?? '', handleActionDone)
 
   const handleLike = () => {
     if (busy || !top) return
     setBusy(true)
-    like()
+    void like()
   }
 
   const handleSkip = () => {
     if (busy || !top) return
     setBusy(true)
-    skip()
+    void skip()
   }
 
   if (loading) {
     return (
-      <div className="flex flex-col h-full">
-        <div className="flex-1 flex items-center justify-center">
-          <div className="w-12 h-12 border-4 border-brand-accent border-t-transparent rounded-full animate-spin" />
+      <div className="flex h-full flex-col">
+        <div className="flex flex-1 items-center justify-center">
+          <div className="h-12 w-12 animate-spin rounded-full border-4 border-brand-accent border-t-transparent" />
         </div>
       </div>
     )
@@ -74,9 +86,9 @@ export function FeedScreen() {
 
   if (error) {
     return (
-      <div className="flex flex-col h-full items-center justify-center p-8 text-center">
-        <p className="text-brand-text-muted mb-4">{error}</p>
-        <button onClick={refresh} className="px-6 py-2 rounded-xl bg-brand-accent text-brand-bg font-bold">
+      <div className="flex h-full flex-col items-center justify-center p-8 text-center">
+        <p className="mb-4 text-brand-text-muted">{error}</p>
+        <button onClick={refresh} className="rounded-xl bg-brand-accent px-6 py-2 font-bold text-brand-bg">
           Повторить
         </button>
       </div>
@@ -85,13 +97,11 @@ export function FeedScreen() {
 
   if (profiles.length === 0) {
     return (
-      <div className="flex flex-col h-full items-center justify-center p-8 text-center">
-        <div className="text-5xl mb-4">🏋️</div>
-        <h3 className="text-xl font-bold text-brand-text mb-2">Анкеты закончились</h3>
-        <p className="text-brand-text-muted mb-6">
-          {hasMore ? 'Загружаем ещё...' : 'Возвращайся позже — появятся новые люди'}
-        </p>
-        <button onClick={refresh} className="px-6 py-2 rounded-xl bg-brand-accent text-brand-bg font-bold">
+      <div className="flex h-full flex-col items-center justify-center p-8 text-center">
+        <div className="mb-4 text-5xl">🏋️</div>
+        <h3 className="mb-2 text-xl font-bold text-brand-text">Анкеты закончились</h3>
+        <p className="mb-6 text-brand-text-muted">Возвращайся позже — появятся новые люди</p>
+        <button onClick={refresh} className="rounded-xl bg-brand-accent px-6 py-2 font-bold text-brand-bg">
           Посмотреть заново
         </button>
       </div>
@@ -99,24 +109,21 @@ export function FeedScreen() {
   }
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Стек карточек */}
-      <div className="flex-1 relative mx-4 mt-4">
-        {/* Фоновые карточки */}
-        {profiles.slice(1, 3).map((profile, i) => (
+    <div className="flex h-full flex-col">
+      <div className="relative mx-4 mt-4 flex-1">
+        {profiles.slice(1, 3).map((profile, index) => (
           <div
             key={profile.user_id}
-            className="absolute inset-0 rounded-3xl overflow-hidden"
+            className="absolute inset-0 overflow-hidden rounded-3xl"
             style={{
-              transform: `scale(${1 - (i + 1) * 0.04}) translateY(${(i + 1) * 10}px)`,
-              zIndex: 10 - i,
+              transform: `scale(${1 - (index + 1) * 0.04}) translateY(${(index + 1) * 10}px)`,
+              zIndex: 10 - index,
             }}
           >
-            <div className="w-full h-full bg-brand-bg-3" />
+            <div className="h-full w-full bg-brand-bg-3" />
           </div>
         ))}
 
-        {/* Активная карточка */}
         <AnimatePresence>
           {top && (
             <motion.div
@@ -126,20 +133,14 @@ export function FeedScreen() {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.8, transition: { duration: 0.2 } }}
             >
-              <SwipeCard
-                profile={top}
-                onLike={handleLike}
-                onSkip={handleSkip}
-              />
+              <SwipeCard profile={top} onLike={handleLike} onSkip={handleSkip} />
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
-      {/* Кнопки действий */}
       <ActionButtons onLike={handleLike} onSkip={handleSkip} disabled={busy || !top} />
 
-      {/* Модалка мэтча */}
       <AnimatePresence>
         {showMatch && <MatchModal onClose={() => setShowMatch(false)} />}
       </AnimatePresence>

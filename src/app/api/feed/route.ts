@@ -1,46 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/auth'
-import { fetchAllProfiles, fetchProfile, fetchViewedIds } from '@/lib/watbot-api'
+import { getAllProfiles, getProfile, fetchActedTargetIds } from '@/lib/db'
 import { buildFeed } from '@/lib/filtering'
-import { getCachedFeed, setCachedFeed } from '@/lib/redis'
+
+const FEED_BATCH_SIZE = 3
 
 export async function GET(req: NextRequest) {
   const userId = await getAuthUser(req)
   if (!userId) {
-    return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
+    return NextResponse.json({ ok: false, error: 'UNAUTHORIZED', message: 'Не авторизован' }, { status: 401 })
   }
 
   try {
     const isGuest = userId.startsWith('guest_')
-
-    // Сначала проверяем кэш — если попали, отдаём без лишних WATBOT-запросов
-    const cachedIds = await getCachedFeed(userId)
-    if (cachedIds && cachedIds.length > 0) {
-      const allProfiles = await fetchAllProfiles()
-      const profileMap = new Map(allProfiles.map((p) => [p.user_id, p]))
-      const profiles = cachedIds.slice(0, 10).map((id) => profileMap.get(id)).filter(Boolean)
-      return NextResponse.json({ profiles, hasMore: cachedIds.length > 10 })
-    }
-
-    // Кэш пуст — грузим всё параллельно
-    // Гости: профиль и просмотры в WATBOT не запрашиваем
-    const [allProfiles, me, viewedIds] = await Promise.all([
-      fetchAllProfiles(),
-      isGuest ? Promise.resolve(null) : fetchProfile(userId),
-      isGuest ? Promise.resolve(new Set<string>()) : fetchViewedIds(userId),
+    const [allProfiles, me, actedIds] = await Promise.all([
+      getAllProfiles(),
+      isGuest ? Promise.resolve(null) : getProfile(userId),
+      isGuest ? Promise.resolve(new Set<string>()) : fetchActedTargetIds(userId),
     ])
 
-    const feed = buildFeed(allProfiles, me, viewedIds)
-    const feedIds = feed.map((p) => p.user_id)
-
-    await setCachedFeed(userId, feedIds)
+    const feed = buildFeed(allProfiles, me, actedIds)
+    const profiles = feed.slice(0, FEED_BATCH_SIZE)
 
     return NextResponse.json({
-      profiles: feed.slice(0, 10),
-      hasMore: feed.length > 10,
+      ok: true,
+      profiles,
+      hasMore: feed.length > profiles.length,
     })
   } catch (err) {
-    console.error('[api/feed] Ошибка:', err)
-    return NextResponse.json({ error: 'Ошибка загрузки ленты' }, { status: 500 })
+    console.error('[api/feed]', err)
+    return NextResponse.json({ ok: false, error: 'INTERNAL_ERROR', message: 'Ошибка загрузки ленты' }, { status: 500 })
   }
 }

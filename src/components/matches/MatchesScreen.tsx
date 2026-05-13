@@ -10,6 +10,8 @@ interface MatchItem {
   user_b_id: string
   timestamp: string
   profile: Profile
+  telegram_username?: string | null
+  phone?: string | null
 }
 
 export function MatchesScreen() {
@@ -62,6 +64,8 @@ export function MatchesScreen() {
               key={`${item.user_a_id}:${item.user_b_id}`}
               profile={item.profile}
               matchDate={item.timestamp}
+              telegramUsername={item.telegram_username}
+              phone={item.phone}
             />
           ))}
         </div>

@@ -9,49 +9,65 @@ function shuffle<T>(arr: T[]): T[] {
   return result
 }
 
-function matchesPreference(candidate: Profile, me: Profile): boolean {
-  if (me.preference === 'any') return true
-  return candidate.gender === me.preference
+// "Другой клуб" — это метка «клуб не указан», не настоящий клуб
+function isOtherClub(club?: string | null): boolean {
+  return (club ?? '').trim().toLowerCase() === 'другой клуб'
 }
 
-// 3-уровневая приоритизация (training_time отсутствует в реальных данных)
-// tier1 — тот же клуб, tier2 — тот же город, tier3 — все остальные
-// me=null — гостевой режим: все активные профили без фильтрации
+// Взаимная совместимость по полу:
+// - me.interested_in='all' → подходит любой кандидат (их interested_in игнорируем)
+// - иначе: candidate.gender === me.interested_in И candidate.interested_in одобряет мой пол
+function isCompatible(candidate: Profile, me: Profile): boolean {
+  if (me.interested_in === 'all') return true
+  if (candidate.gender !== me.interested_in) return false
+  return candidate.interested_in === 'all' || candidate.interested_in === me.gender
+}
+
+// 4-тировая приоритизация:
+//   tier1 — тот же клуб + город
+//   tier2 — тот же клуб
+//   tier3 — тот же город
+//   tier4 — остальные
+// Фильтр совместимости по полу (isCompatible) применяется одинаково ко всем тирам.
+// Если me.club = "Другой клуб" — tier1 и tier2 пропускаются.
+// Если candidate.club = "Другой клуб" — не считается совпадением клуба.
+// me=null — гостевой режим: все активные незаблокированные без фильтрации.
 export function buildFeed(
   allProfiles: Profile[],
   me: Profile | null,
-  viewedIds: Set<string>
+  actedIds: Set<string>,
 ): Profile[] {
+  const isActive = (p: Profile) => p.active && !p.is_blocked
+
   if (!me) {
-    return shuffle(allProfiles.filter((p) => p.active && !viewedIds.has(p.user_id)))
+    return shuffle(allProfiles.filter((p) => isActive(p) && !actedIds.has(p.user_id)))
   }
 
   const candidates = allProfiles.filter(
     (p) =>
       p.user_id !== me.user_id &&
-      p.active &&
-      !viewedIds.has(p.user_id) &&
-      matchesPreference(p, me)
+      isActive(p) &&
+      !actedIds.has(p.user_id) &&
+      isCompatible(p, me),
   )
 
-  const inTier1 = new Set<string>()
-  const inTier2 = new Set<string>()
+  const myClubIsOther = isOtherClub(me.club)
 
   const tier1: Profile[] = []
   const tier2: Profile[] = []
   const tier3: Profile[] = []
+  const tier4: Profile[] = []
 
   for (const p of candidates) {
-    if (p.club && p.club === me.club) {
-      tier1.push(p)
-      inTier1.add(p.user_id)
-    } else if (p.city && p.city === me.city && !inTier1.has(p.user_id)) {
-      tier2.push(p)
-      inTier2.add(p.user_id)
-    } else if (!inTier1.has(p.user_id) && !inTier2.has(p.user_id)) {
-      tier3.push(p)
-    }
+    const sameCity = !!p.city && p.city === me.city
+    const sameClub =
+      !!p.club && p.club === me.club && !isOtherClub(p.club) && !myClubIsOther
+
+    if (sameClub && sameCity) tier1.push(p)
+    else if (sameClub) tier2.push(p)
+    else if (sameCity) tier3.push(p)
+    else tier4.push(p)
   }
 
-  return [...shuffle(tier1), ...shuffle(tier2), ...shuffle(tier3)]
+  return [...shuffle(tier1), ...shuffle(tier2), ...shuffle(tier3), ...shuffle(tier4)]
 }

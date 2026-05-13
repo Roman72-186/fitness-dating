@@ -14,110 +14,148 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 npm run dev          # Next.js dev-сервер (port 3000)
-npm run build        # Production сборка + TypeScript check
+npm run build        # prisma generate + next build
 npm run lint         # ESLint
 npm run test         # Vitest (один прогон)
 npm run test:watch   # Vitest в watch-режиме
-npm run gen-token [telegram_id]  # Сгенерировать dev JWT (default id: 123456789)
+npm run gen-token [telegram_id]  # dev JWT (default id: 123456789)
+npm run db:migrate   # prisma migrate deploy (только прод через CI)
+npm run db:studio    # Prisma Studio локально
+npx vitest run src/lib/filtering.test.ts  # один тестовый файл
 ```
 
-Запустить один тестовый файл:
-```bash
-npx vitest run src/lib/filtering.test.ts
-```
-
-Сгенерировать токен для реального WATBOT-пользователя и открыть приложение:
+Сгенерировать токен и открыть приложение локально:
 ```bash
 npm run gen-token 270703004
-# → открыть http://localhost:3000/?token=<JWT>
+# открыть http://localhost:3000/?token=<JWT>
 ```
 
 ---
 
 ## Архитектура
 
-### Слой данных — только WATBOT API
+### Слой данных — Prisma + PostgreSQL
 
-Никакой собственной БД. Все данные хранятся в четырёх WATBOT-списках:
+Единственная БД — PostgreSQL в Docker-контейнере `fm_db`. Схема в `prisma/schema.prisma`.
 
-| Список | Env var | Назначение |
-|---|---|---|
-| Анкеты | `WATBOT_LIST_PROFILES` | Профили пользователей |
-| Просмотрено | `WATBOT_LIST_VIEWS` | Кто чью анкету смотрел |
-| Лайки | `WATBOT_LIST_LIKES` | Лайки (содержат полные данные обоих профилей) |
-| Мэтчи | `WATBOT_LIST_MATCHES` | Взаимные лайки + username |
+**Три таблицы:**
+- `users` — профили (`telegram_id` — PK). Поле `photos: Json` — массив URL; `photo_url` — legacy-совместимость.
+- `profile_actions` — все действия свайпа (`viewer_profile_id`, `target_profile_id`, `action: like|skip`). Unique constraint исключает повторные действия.
+- `matches` — взаимные лайки (`user_a_id < user_b_id` — нормализованный порядок).
 
-WATBOT API: `POST /api/v1/getListItems` (чтение) и `POST /api/v1/addListItem` (запись). Параметр списка — `schema_id` (не `list_id`!). Детали схем полей — в `watbot-lists-reference.md`.
+Все обращения к БД — только через `src/lib/db.ts`. Файл экспортирует singleton `prisma` и хелперы: `getProfile`, `getAllProfiles`, `upsertProfile`, `writeAction`, `fetchActedTargetIds`, `checkMutualLike`, `writeMatch`, `fetchIncomingLikes`, `fetchMatches`.
 
-**Реальная структура WATBOT отличается от очевидной:**
-- `foto` в анкетах — объект `{ url, ... }`, в лайках/мэтчах — строка URL
-- `pol` — `"🙋‍♂️ Мужской"` / `"🙋‍♀️ Женский"` (требует маппинга в `gender`)
-- `s_kem_poznakomitsia` — `"С девушками"` / `"С парнями"` / `"Все равно"` → `preference`
-- Суффикс `_m` в полях лайков/мэтчей = тот, кто совершил действие (liker, viewer)
-- Полей `active`, `training_time`, `is_viewed` в реальных данных нет
+### DEV_MODE
 
-### Авторизация — три метода, один хук
+`DEV_MODE=true` в `.env.local` — все функции `db.ts` переключаются на мок-данные из `src/lib/__mocks__/`. Middleware и JWT **не** обходятся.
 
-`src/hooks/useToken.ts` пробует методы по порядку:
-1. `?telegram_id=` в URL — WATBOT сценарий подставляет `{{id_tg}}` в ссылку кнопки → наш `/api/auth/by-id` выдаёт JWT
-2. `?token=` в URL — прямой JWT (для dev-тестирования через `gen-token`)
-3. `window.Telegram.WebApp.initData` — стандартный Telegram Mini App (BotFather menu button) → `/api/auth/telegram`
+### Авторизация
 
-После авторизации token убирается из URL, сохраняется в Zustand (`src/store/auth-store.ts`).
+`src/hooks/useToken.ts` пробует три метода по порядку:
+1. `?token=` в URL — прямой JWT (dev через `gen-token`, серверные интеграции)
+2. `window.Telegram.WebApp.initData` — Telegram Mini App (BotFather) → `/api/auth/telegram`
+3. Гостевая UUID-сессия в localStorage → `/api/auth/guest`
 
-**Важно:** статическая кнопка меню в WATBOT открывает URL без параметров. Метод 1 работает только через кнопку в **сообщении сценария** WATBOT, где поддерживается `{{id_tg}}`.
+Для серверных интеграций (WATBOT-сценарий с `?telegram_id=`) используется `/api/auth/by-id` (защищён `SYNC_SECRET`). Этот маршрут выдаёт JWT по telegram_id без initData.
 
-### Middleware
+После авторизации токен хранится в Zustand (`src/store/auth-store.ts`). Все API-запросы с фронта идут с `Authorization: Bearer <token>`.
 
-`middleware.ts` защищает все `/api/*` маршруты кроме `/api/health`. Верифицирует JWT через `jose`, пробрасывает `x-user-id` в заголовки запроса. Каждый Route Handler дополнительно вызывает `getAuthUser(req)` из `src/lib/auth.ts` (парсит JWT напрямую из `Authorization` заголовка).
+Middleware отсутствует (`middleware.ts` не создан) — каждый Route Handler вызывает `getAuthUser(req)` из `src/lib/auth.ts` вручную. `getAuthUser` парсит JWT из заголовка `Authorization: Bearer`.
 
-### Фильтрация ленты
+Гостевые пользователи (`userId.startsWith('guest_')`) пропускаются без записи в `profile_actions`.
 
-`src/lib/filtering.ts` — чистая функция `buildFeed()`. 3-тировая приоритизация:
-1. Тот же клуб (`club`)
-2. Тот же город (`city`)
-3. Все остальные
+### Лента (feed)
 
-Каждый тир перемешивается случайно. Лента кэшируется в Upstash Redis (ключ `feed:{userId}`, TTL 5 мин). Redis опционален — при отсутствии работает без кэша.
+`GET /api/feed` — стартовая пачка (3 анкеты).
+`GET /api/profiles/next?exclude=id1,id2,...` — одна следующая анкета.
 
-### Клиентская часть
+Обе ручки вызывают `buildFeed()` из `src/lib/filtering.ts`. Логика: фильтрует просмотренных (`fetchActedTargetIds`), себя, учитывает `interested_in`. 4-тировая приоритизация: tier1 = тот же клуб **и** город, tier2 = тот же город, tier3 = тот же клуб, tier4 = все остальные. Каждый тир перемешивается случайно.
 
-- `AppShell` — TokenGate: показывает спиннер пока идёт авторизация, ошибку если упала, контент если ок
-- `FeedScreen` + `SwipeCard` — стек карточек Framer Motion (`drag="x"`), overlays ЛАЙК/ПРОПУСК
-- `useFeed` — загружает `/api/feed`, управляет стеком профилей
-- Все API-запросы с фронта идут с `Authorization: Bearer <token>` заголовком
+На клиенте `useFeed.ts` управляет стеком: `fetchFeed()` загружает стартовую пачку, `advanceAfterSwipe()` — запрашивает следующую анкету, потом сдвигает стек. Промежуточного экрана «загрузка» после свайпа нет.
 
----
+### Действия (action flow)
 
-## DEV_MODE
+`POST /api/action` → `src/lib/actions.ts` → `handleAction()`:
+1. Загружает оба профиля из БД.
+2. `writeAction()` — upsert в `profile_actions` (повторное действие не перезаписывается).
+3. Если `action=like`: fire-and-forget `notifyNewLike`, проверка взаимности, при мэтче — `writeMatch` + `notifyMatch`.
+4. При мэтче возвращает `contact` с телефоном и username партнёра.
 
-`DEV_MODE=true` в `.env.local` — все WATBOT-запросы заменяются мок-данными из `src/lib/__mocks__/`. Реальный API не вызывается. Для переключения на реальный WATBOT: `DEV_MODE=false`.
+`POST /api/profiles/action` — алиас, ведёт ту же логику.
+`POST /api/likes/respond` — ответ на входящий лайк (тот же `handleAction`, source=`incoming_likes`).
+
+### Уведомления
+
+`src/lib/notify.ts` — отправка через Telegram Bot API (fire-and-forget, ошибки логируются но не бросаются).
+
+### Загрузка фото
+
+`POST /api/upload` + `src/lib/s3.ts` — S3-совместимое хранилище (TimeWeb S3). URL строится через `S3_PUBLIC_BASE_URL` или `S3_ENDPOINT/S3_BUCKET/key`. `next.config.mjs` содержит `remotePatterns` для `s3.twcstorage.ru` и `storage.watbot.ru`.
+
+### Структура страниц
+
+Все авторизованные страницы внутри `src/app/(auth)/` (route group). Layout оборачивает в `AppShell` (TokenGate: спиннер → ошибка → контент) и `BottomNav`.
+
+Маршруты: `/feed`, `/likes`, `/matches`, `/profile`. Кеш для этих страниц принудительно отключён (`force-dynamic` + `no-store` headers в `next.config.mjs`).
+
+### Административные ручки
+
+- `POST /api/admin/sync-from-watbot` — импорт профилей из WATBOT (защищён `SYNC_SECRET`)
+- `POST /api/admin/migrate-photos-to-s3` — перенос фото с storage.watbot.ru в S3
+- `POST /api/bot/register-profile` — регистрация профиля через бота (защищён заголовком `x-webhook-secret: BOT_WEBHOOK_SECRET`)
 
 ---
 
 ## Деплой
 
-Vercel. Необходимые env vars (все обязательны кроме Redis и WATBOT_HOOK_NOTIFY_MATCH):
+**Прод:** `https://fit.assaru.space`, Docker Compose + Traefik, VPS 89.23.96.254.
 
-```
-JWT_SECRET                  # мин. 32 символа
-TELEGRAM_BOT_TOKEN          # для верификации initData (метод 3)
-WATBOT_API_TOKEN
-WATBOT_LIST_PROFILES
-WATBOT_LIST_VIEWS
-WATBOT_LIST_LIKES
-WATBOT_LIST_MATCHES
-DEV_MODE=false
-UPSTASH_REDIS_REST_URL      # опционально
-UPSTASH_REDIS_REST_TOKEN    # опционально
-WATBOT_HOOK_NOTIFY_MATCH    # опционально, webhook для уведомления о мэтче
+```bash
+# Сборка перед деплоем
+npm run build
+
+# На VPS (путь /home/fitness-dating):
+docker compose -f docker-compose.prod.yml build --no-cache app
+docker compose -f docker-compose.prod.yml up -d --force-recreate app
+docker compose -f docker-compose.prod.yml logs --tail=50 app
 ```
 
-Реальные значения schema_id всех списков — в `watbot-lists-reference.md`.
+Prisma на проде использует `linux-musl-openssl-3.0.x` бинарник (Alpine). `binaryTargets` в `prisma/schema.prisma` уже настроены.
 
-### next.config.mjs
+**Миграции на проде — только `prisma migrate deploy`, никогда `migrate dev`. Перед миграцией — бэкап БД.**
 
-Домен фото WATBOT (`storage.watbot.ru`) не добавлен в `remotePatterns` — если фото не грузятся через `next/image`, добавить:
-```js
-{ protocol: 'https', hostname: 'storage.watbot.ru' }
+### SSH
+
+SSH-псевдоним для `89.23.96.254` в `~/.ssh/config` не настроен по умолчанию. Добавить вручную:
+```
+Host vps-fitness
+    HostName 89.23.96.254
+    User root
+    IdentityFile ~/.ssh/id_ed25519
+    ServerAliveInterval 60
+```
+
+На Windows SSH с heredoc зависает — объединять команды в один вызов через `;` или `&&`.
+
+---
+
+## Env-переменные
+
+Обязательные:
+```
+DATABASE_URL        # postgresql://fituser:pass@db:5432/fitness_dating
+JWT_SECRET          # мин. 32 символа
+SYNC_SECRET         # защита /api/auth/by-id и /api/admin/*
+TELEGRAM_BOT_TOKEN  # верификация initData + уведомления
+BOT_WEBHOOK_SECRET  # защита /api/bot/register-profile
+S3_ENDPOINT / S3_BUCKET / S3_ACCESS_KEY / S3_SECRET_KEY / S3_REGION
+```
+
+Опциональные:
+```
+S3_PREFIX           # default: fitness-dating/avatars
+S3_PUBLIC_BASE_URL  # CDN домен; если пусто, строится через endpoint/bucket
+UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN  # кэш ленты (не используется в текущей версии)
+DEV_MODE=false      # true — мок-данные
+WATBOT_API_TOKEN    # только для /api/admin/sync-from-watbot
 ```

@@ -6,11 +6,18 @@ import type { Profile } from '@/types'
 interface Props {
   profile: Profile
   matchDate: string
+  telegramUsername?: string | null
+  phone?: string | null
 }
 
-export function MatchCard({ profile, matchDate }: Props) {
+export function MatchCard({ profile, matchDate, telegramUsername, phone }: Props) {
   const photo = profile.photos[0] ?? 'https://i.pravatar.cc/200'
-  const tgLink = `https://t.me/${profile.user_id}`
+  // Приоритет: публичный username → universal deep-link по id → телефон
+  const username = telegramUsername || profile.telegram_username
+  const tgLink = username
+    ? `https://t.me/${username}`
+    : `tg://user?id=${profile.user_id}`
+
   const date = new Date(matchDate).toLocaleDateString('ru-RU', {
     day: 'numeric',
     month: 'long',
@@ -31,14 +38,25 @@ export function MatchCard({ profile, matchDate }: Props) {
         </p>
       </div>
 
-      <a
-        href={tgLink}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex-shrink-0 px-4 py-2 rounded-xl bg-brand-accent text-brand-bg text-sm font-bold hover:opacity-90 transition-opacity"
-      >
-        Написать
-      </a>
+      <div className="flex gap-2 flex-shrink-0">
+        <a
+          href={tgLink}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="px-4 py-2 rounded-xl bg-brand-accent text-brand-bg text-sm font-bold hover:opacity-90 transition-opacity"
+        >
+          Написать
+        </a>
+        {phone && (
+          <a
+            href={`tel:${phone}`}
+            className="w-10 h-10 rounded-xl bg-brand-bg-3 text-brand-text flex items-center justify-center hover:opacity-90 transition-opacity"
+            aria-label="Позвонить"
+          >
+            📞
+          </a>
+        )}
+      </div>
     </div>
   )
 }

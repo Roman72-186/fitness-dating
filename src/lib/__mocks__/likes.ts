@@ -1,22 +1,26 @@
-import type { LikeParsed } from '@/lib/watbot-types'
+interface MockLike {
+  id: string
+  id_tg: string    // target
+  id_tg_m: string  // liker
+  imia_m: string
+  vozrast_m: string
+  klub_m: string
+  gorod_m: string
+  o_sebe_m: string
+  foto_m: string
+}
 
-export const mockLikes: LikeParsed[] = [
+export const mockLikes: MockLike[] = [
   {
-    from_user_id: '1001',
-    to_user_id: '9999',
-    is_viewed: false,
-    timestamp: '2026-04-23T10:00:00.000Z',
+    id: 'mock-like-1',
+    id_tg: '9999',
+    id_tg_m: '1001',
+    imia_m: 'Алексей', vozrast_m: '28', klub_m: 'FitLife', gorod_m: 'Москва', o_sebe_m: 'Люблю спорт', foto_m: '',
   },
   {
-    from_user_id: '1002',
-    to_user_id: '9999',
-    is_viewed: false,
-    timestamp: '2026-04-23T11:00:00.000Z',
-  },
-  {
-    from_user_id: '1003',
-    to_user_id: '9999',
-    is_viewed: true,
-    timestamp: '2026-04-22T09:00:00.000Z',
+    id: 'mock-like-2',
+    id_tg: '9999',
+    id_tg_m: '1002',
+    imia_m: 'Дмитрий', vozrast_m: '31', klub_m: 'WorldClass', gorod_m: 'Москва', o_sebe_m: '', foto_m: '',
   },
 ]

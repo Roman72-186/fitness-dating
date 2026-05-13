@@ -20,7 +20,7 @@ export function LikeCard({ fromUserId, profile, onDone }: Props) {
     setLoading(true)
 
     try {
-      const res = await fetch('/api/action', {
+      const res = await fetch('/api/likes/respond', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

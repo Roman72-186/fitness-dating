@@ -1,0 +1,71 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Gender {
+  male
+  female
+  other
+}
+
+enum InterestedIn {
+  male
+  female
+  all
+}
+
+model User {
+  telegram_id       String       @id
+  name              String       @default("")
+  last_name         String?
+  age               Int          @default(0)
+  gender            Gender       @default(other)
+  interested_in     InterestedIn @default(all)
+  about             String       @default("")
+  // photos — массив URL (JSON); photo_url оставлен для обратной совместимости
+  photos            Json         @default("[]")
+  photo_url         String       @default("")
+  city              String       @default("")
+  club              String       @default("")
+  phone             String?
+  telegram_username String?
+  is_active         Boolean      @default(true)
+  is_blocked        Boolean      @default(false)
+  platform          String       @default("telegram")
+  created_at        DateTime     @default(now())
+  updated_at        DateTime     @updatedAt
+
+  @@map("users")
+}
+
+model ProfileAction {
+  id                Int      @id @default(autoincrement())
+  viewer_profile_id String
+  target_profile_id String
+  action            String   // 'like' | 'skip'
+  source            String   // 'feed' | 'incoming_likes'
+  created_at        DateTime @default(now())
+
+  @@unique([viewer_profile_id, target_profile_id])
+  @@index([target_profile_id, action])
+  @@index([viewer_profile_id])
+  @@map("profile_actions")
+}
+
+model Match {
+  id         Int      @id @default(autoincrement())
+  user_a_id  String
+  user_b_id  String
+  created_at DateTime @default(now())
+
+  @@unique([user_a_id, user_b_id])
+  @@index([user_a_id])
+  @@index([user_b_id])
+  @@map("matches")
+}

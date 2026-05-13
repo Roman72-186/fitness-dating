@@ -1,30 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/auth'
-import { fetchIncomingLikes } from '@/lib/watbot-api'
+import { fetchIncomingLikes } from '@/lib/db'
 
 export async function GET(req: NextRequest) {
   const userId = await getAuthUser(req)
   if (!userId) {
-    return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
+    return NextResponse.json({ ok: false, error: 'UNAUTHORIZED', message: 'Не авторизован' }, { status: 401 })
   }
 
   try {
-    const likes = await fetchIncomingLikes(userId)
-
-    // Данные профиля лайкнувшего уже встроены в запись (imia_m, foto_m и т.д.)
-    const result = likes.map((like) => ({
-      likerId: like.id_tg_m,
-      name: like.imia_m,
-      age: like.vozrast_m ? parseInt(like.vozrast_m, 10) : 0,
-      club: like.klub_m,
-      city: like.gorod_m,
-      about: like.o_sebe_m,
-      photo: like.foto_m,
+    const raw = await fetchIncomingLikes(userId)
+    // Форматируем под ожидание фронта: { from_user_id, profile: Profile }
+    const likes = raw.map((l) => ({
+      from_user_id: l.likerId,
+      profile: {
+        user_id: l.likerId,
+        name: l.name,
+        age: l.age,
+        gender: 'other' as const,
+        interested_in: 'all' as const,
+        about: l.about,
+        photos: l.photo ? [l.photo] : [],
+        city: l.city,
+        club: l.club,
+        active: true,
+      },
     }))
-
-    return NextResponse.json({ likes: result })
+    return NextResponse.json({ ok: true, likes })
   } catch (err) {
-    console.error('[api/likes] Ошибка:', err)
-    return NextResponse.json({ error: 'Ошибка загрузки лайков' }, { status: 500 })
+    console.error('[api/likes]', err)
+    return NextResponse.json({ ok: false, error: 'INTERNAL_ERROR', message: 'Ошибка загрузки лайков' }, { status: 500 })
   }
 }

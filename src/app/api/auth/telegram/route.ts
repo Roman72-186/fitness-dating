@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { SignJWT } from 'jose'
 import { createHmac } from 'crypto'
+import { prisma } from '@/lib/db'
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN ?? ''
 const JWT_SECRET = process.env.JWT_SECRET ?? ''
 
-// Верификация Telegram initData по стандарту:
-// https://core.telegram.org/bots/webapps#validating-data-received-via-the-mini-app
-function verifyInitData(initData: string): { id: string } | null {
+function verifyInitData(initData: string): { id: string; username?: string } | null {
   const params = new URLSearchParams(initData)
   const hash = params.get('hash')
   if (!hash) return null
@@ -25,8 +24,8 @@ function verifyInitData(initData: string): { id: string } | null {
   if (!userRaw) return null
 
   try {
-    const user = JSON.parse(userRaw) as { id: number }
-    return { id: String(user.id) }
+    const user = JSON.parse(userRaw) as { id: number; username?: string }
+    return { id: String(user.id), username: user.username }
   } catch {
     return null
   }
@@ -34,7 +33,7 @@ function verifyInitData(initData: string): { id: string } | null {
 
 export async function POST(req: NextRequest) {
   if (!BOT_TOKEN) {
-    return NextResponse.json({ error: 'TELEGRAM_BOT_TOKEN не настроен' }, { status: 500 })
+    return NextResponse.json({ ok: false, error: 'INTERNAL_ERROR', message: 'TELEGRAM_BOT_TOKEN не настроен' }, { status: 500 })
   }
 
   let initData: string
@@ -42,16 +41,29 @@ export async function POST(req: NextRequest) {
     const body = await req.json() as { initData?: string }
     initData = body.initData ?? ''
   } catch {
-    return NextResponse.json({ error: 'Невалидный JSON' }, { status: 400 })
+    return NextResponse.json({ ok: false, error: 'VALIDATION_ERROR', message: 'Невалидный JSON' }, { status: 400 })
   }
 
   if (!initData) {
-    return NextResponse.json({ error: 'initData отсутствует' }, { status: 400 })
+    return NextResponse.json({ ok: false, error: 'VALIDATION_ERROR', message: 'initData отсутствует' }, { status: 400 })
   }
 
   const user = verifyInitData(initData)
   if (!user) {
-    return NextResponse.json({ error: 'Невалидная подпись Telegram' }, { status: 401 })
+    return NextResponse.json({ ok: false, error: 'UNAUTHORIZED', message: 'Невалидная подпись Telegram' }, { status: 401 })
+  }
+
+  // Сохраняем telegram_username если доступен из initData
+  if (user.username) {
+    try {
+      await prisma.user.upsert({
+        where: { telegram_id: user.id },
+        create: { telegram_id: user.id, telegram_username: user.username },
+        update: { telegram_username: user.username },
+      })
+    } catch {
+      // Не блокируем выдачу токена
+    }
   }
 
   const token = await new SignJWT({ sub: user.id })
@@ -60,5 +72,5 @@ export async function POST(req: NextRequest) {
     .setExpirationTime('24h')
     .sign(new TextEncoder().encode(JWT_SECRET))
 
-  return NextResponse.json({ token, userId: user.id })
+  return NextResponse.json({ ok: true, token, userId: user.id })
 }

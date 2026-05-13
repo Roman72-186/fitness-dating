@@ -1,36 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/auth'
-import { fetchMatches } from '@/lib/watbot-api'
+import { fetchMatches } from '@/lib/db'
 
 export async function GET(req: NextRequest) {
   const userId = await getAuthUser(req)
   if (!userId) {
-    return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
+    return NextResponse.json({ ok: false, error: 'UNAUTHORIZED', message: 'Не авторизован' }, { status: 401 })
   }
 
   try {
-    const matches = await fetchMatches(userId)
-
-    // Данные партнёра встроены в запись мэтча — определяем кто партнёр
-    const result = matches.map((match) => {
-      const iAmInitiator = match.id_tg === userId
+    const raw = await fetchMatches(userId)
+    // Форматируем под ожидание фронта: { user_a_id, user_b_id, timestamp, profile }
+    // phone и telegram_username включены — единственное место, где они отдаются (§47)
+    const matches = raw.map((m) => {
+      const [a, b] = userId < m.partnerId ? [userId, m.partnerId] : [m.partnerId, userId]
       return {
-        partnerId: iAmInitiator ? match.id_tg_m : match.id_tg,
-        name: iAmInitiator ? match.imia_m : match.imia,
-        age: iAmInitiator
-          ? (match.vozrast_m ? parseInt(match.vozrast_m, 10) : 0)
-          : (match.vozrast ? parseInt(match.vozrast, 10) : 0),
-        club: iAmInitiator ? match.klub_m : match.klub,
-        city: iAmInitiator ? match.gorod_m : match.gorod,
-        about: iAmInitiator ? match.o_sebe_m : match.o_sebe,
-        photo: iAmInitiator ? match.foto_m : match.foto,
-        username: match.username ?? null,
+        user_a_id: a,
+        user_b_id: b,
+        timestamp: m.createdAt.toISOString(),
+        profile: {
+          user_id: m.partnerId,
+          name: m.name,
+          age: m.age,
+          gender: 'other' as const,
+          interested_in: 'all' as const,
+          about: m.about,
+          photos: m.photo ? [m.photo] : [],
+          city: m.city,
+          club: m.club,
+          telegram_username: m.telegram_username ?? undefined,
+          active: true,
+        },
+        phone: m.phone,
+        telegram_username: m.telegram_username,
       }
     })
-
-    return NextResponse.json({ matches: result })
+    return NextResponse.json({ ok: true, matches })
   } catch (err) {
-    console.error('[api/matches] Ошибка:', err)
-    return NextResponse.json({ error: 'Ошибка загрузки мэтчей' }, { status: 500 })
+    console.error('[api/matches]', err)
+    return NextResponse.json({ ok: false, error: 'INTERNAL_ERROR', message: 'Ошибка загрузки мэтчей' }, { status: 500 })
   }
 }

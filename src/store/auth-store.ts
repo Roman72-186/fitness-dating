@@ -5,9 +5,11 @@ interface AuthState {
   userId: string | null
   loading: boolean
   error: string | null
+  hasProfile: boolean | null
   setAuth: (token: string, userId: string) => void
   setLoading: (v: boolean) => void
   setError: (e: string | null) => void
+  setHasProfile: (v: boolean) => void
   clear: () => void
 }
 
@@ -16,8 +18,10 @@ export const useAuthStore = create<AuthState>((set) => ({
   userId: null,
   loading: true,
   error: null,
+  hasProfile: null,
   setAuth: (token, userId) => set({ token, userId, loading: false, error: null }),
   setLoading: (v) => set({ loading: v }),
   setError: (e) => set({ error: e, loading: false }),
-  clear: () => set({ token: null, userId: null, loading: false, error: null }),
+  setHasProfile: (v) => set({ hasProfile: v }),
+  clear: () => set({ token: null, userId: null, loading: false, error: null, hasProfile: null }),
 }))
