@@ -44,7 +44,10 @@ export function BottomNav() {
   }, [token])
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-brand-bg-2 border-t border-white/10 flex z-30">
+    <nav
+      className="fixed bottom-0 left-0 right-0 z-30 mx-auto flex w-full max-w-md border-t border-white/10 bg-brand-bg-2/95 backdrop-blur-sm"
+      style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
+    >
       {tabs.map((tab) => {
         const active = pathname.startsWith(tab.href)
         const isProfile = tab.href === '/profile'
@@ -52,7 +55,7 @@ export function BottomNav() {
           <Link
             key={tab.href}
             href={tab.href}
-            className={`flex-1 flex flex-col items-center py-3 gap-1 transition-colors relative ${
+            className={`relative flex flex-1 flex-col items-center gap-1 py-3 transition-colors ${
               active ? 'text-brand-accent' : 'text-brand-text-muted'
             }`}
           >

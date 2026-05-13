@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { MatchCard } from './MatchCard'
 import { useAuthStore } from '@/store/auth-store'
 import type { Profile } from '@/types'
@@ -41,24 +41,40 @@ export function MatchesScreen() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="w-10 h-10 border-4 border-brand-accent border-t-transparent rounded-full animate-spin" />
+      <div className="flex h-full flex-col items-center justify-center px-6 text-center">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-brand-accent border-t-transparent" />
+        <p className="mt-5 font-display text-2xl text-brand-text">Собираем мэтчи</p>
+        <p className="mt-2 max-w-xs text-sm leading-6 text-brand-text-muted">Проверяем, кто уже готов перейти из ленты в реальный диалог.</p>
       </div>
     )
   }
 
   return (
-    <div className="flex flex-col h-full">
-      <h1 className="text-xl font-bold text-brand-text px-4 pt-6 pb-4">Мэтчи</h1>
+    <div className="flex h-full flex-col px-4 pb-24 pt-6">
+      <header className="mb-5 flex items-start justify-between gap-4">
+        <div className="max-w-[18rem]">
+          <p className="mb-2 text-[0.7rem] uppercase tracking-[0.26em] text-brand-text-muted">Зона контакта</p>
+          <h1 className="font-display text-[2rem] leading-none text-brand-text">Люди, с кем уже можно говорить</h1>
+          <p className="mt-3 text-sm leading-6 text-brand-text-muted">
+            Этот экран должен двигать к разговору. Никакой лишней драматургии: только готовые взаимные сигналы.
+          </p>
+        </div>
+        <div className="rounded-[1.4rem] border border-white/10 bg-brand-bg-2 px-4 py-3 text-right shadow-panel">
+          <p className="text-[0.7rem] uppercase tracking-[0.22em] text-brand-text-muted">Открыто</p>
+          <p className="font-display text-3xl text-brand-text">{matches.length}</p>
+        </div>
+      </header>
 
       {matches.length === 0 ? (
-        <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
-          <div className="text-5xl mb-4">⚡</div>
-          <p className="text-brand-text-muted">Мэтчей пока нет</p>
-          <p className="text-sm text-brand-text-muted mt-2">Лайкай анкеты — и они появятся!</p>
+        <div className="flex flex-1 flex-col items-center justify-center rounded-[2rem] border border-dashed border-white/12 bg-brand-bg-2/75 px-8 text-center">
+          <p className="text-[0.7rem] uppercase tracking-[0.24em] text-brand-text-muted">Пока пусто</p>
+          <h2 className="mt-3 font-display text-3xl text-brand-text">Мэтчи ещё не собрались</h2>
+          <p className="mt-3 max-w-xs text-sm leading-6 text-brand-text-muted">
+            Когда ответный лайк совпадёт, здесь появится прямой путь к контакту без повторного выбора.
+          </p>
         </div>
       ) : (
-        <div className="flex-1 overflow-y-auto px-4 space-y-3 pb-24">
+        <div className="flex-1 space-y-4 overflow-y-auto">
           {matches.map((item) => (
             <MatchCard
               key={`${item.user_a_id}:${item.user_b_id}`}

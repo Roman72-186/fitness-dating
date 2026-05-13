@@ -11,7 +11,7 @@ export default function AuthLayout({
 }) {
   return (
     <AppShell>
-      <div className="max-w-md mx-auto h-screen relative flex flex-col pb-20">
+      <div className="app-shell-page relative mx-auto flex min-h-[100dvh] w-full max-w-md flex-col pb-24">
         {children}
       </div>
       <BottomNav />

@@ -6,33 +6,25 @@ import Image from 'next/image'
 interface Props {
   photos: string[]
   name: string
-  onLike?: () => void
-  onSkip?: () => void
+  locationLabel?: string | null
 }
 
-export function PhotoCarousel({ photos, name, onLike, onSkip }: Props) {
+export function PhotoCarousel({ photos, name, locationLabel }: Props) {
   const [current, setCurrent] = useState(0)
   const list = photos.length > 0 ? photos : ['https://i.pravatar.cc/400']
 
-  const handleTap = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const third = rect.width / 3
+  const showPrev = () => {
+    if (list.length < 2) return
+    setCurrent((index) => (index - 1 + list.length) % list.length)
+  }
 
-    if (list.length > 1) {
-      if (x < third) {
-        setCurrent((i) => (i - 1 + list.length) % list.length)
-        return
-      }
-      if (x > rect.width - third) {
-        setCurrent((i) => (i + 1) % list.length)
-        return
-      }
-    }
+  const showNext = () => {
+    if (list.length < 2) return
+    setCurrent((index) => (index + 1) % list.length)
   }
 
   return (
-    <div className="relative w-full h-full" onClick={handleTap}>
+    <div className="relative h-full w-full overflow-hidden rounded-[1.75rem]">
       <Image
         src={list[current]}
         alt={name}
@@ -42,35 +34,63 @@ export function PhotoCarousel({ photos, name, onLike, onSkip }: Props) {
         priority={current === 0}
       />
 
-      {/* Индикаторы фото */}
-      {list.length > 1 && (
-        <div className="absolute top-3 left-0 right-0 flex justify-center gap-1 z-20 pointer-events-none">
-          {list.map((_, i) => (
+      <div className="absolute inset-0 bg-gradient-to-b from-black/48 via-transparent to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/10 to-transparent" />
+
+      <div className="absolute left-4 right-4 top-4 z-20 flex items-start justify-between gap-3">
+        <div className="flex min-w-0 flex-col gap-2">
+          <span className="inline-flex w-fit items-center rounded-full border border-white/10 bg-black/30 px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.24em] text-white/82">
+            Активная лента
+          </span>
+          {locationLabel ? (
+            <span className="inline-flex w-fit items-center rounded-full bg-white/12 px-3 py-1 text-xs font-medium text-white/88">
+              {locationLabel}
+            </span>
+          ) : null}
+        </div>
+
+        <div className="rounded-full border border-white/10 bg-black/35 px-3 py-1 text-xs font-medium text-white/88">
+          {current + 1} / {list.length}
+        </div>
+      </div>
+
+      {list.length > 1 ? (
+        <div className="pointer-events-none absolute left-4 right-4 top-[4.5rem] z-20 flex gap-1.5">
+          {list.map((_, index) => (
             <div
-              key={i}
-              className={`h-1 rounded-full transition-all ${
-                i === current ? 'w-6 bg-white' : 'w-2 bg-white/40'
+              key={`${name}-${index}`}
+              className={`h-1.5 flex-1 rounded-full transition-all ${
+                index === current ? 'bg-white' : 'bg-white/28'
               }`}
             />
           ))}
         </div>
-      )}
+      ) : null}
 
-      {/* Зоны действий — левая треть: пропуск, правая треть: лайк */}
-      {onSkip && (
-        <button
-          onClick={(e) => { e.stopPropagation(); onSkip() }}
-          className="absolute left-0 top-0 h-full w-1/3 z-10 opacity-0"
-          aria-label="Пропустить"
-        />
-      )}
-      {onLike && (
-        <button
-          onClick={(e) => { e.stopPropagation(); onLike() }}
-          className="absolute right-0 top-0 h-full w-1/3 z-10 opacity-0"
-          aria-label="Лайк"
-        />
-      )}
+      {list.length > 1 ? (
+        <>
+          <button
+            type="button"
+            onClick={showPrev}
+            className="absolute left-4 top-1/2 z-20 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-black/32 text-lg text-white shadow-panel transition-transform active:scale-95"
+            aria-label="Предыдущее фото"
+          >
+            ←
+          </button>
+          <button
+            type="button"
+            onClick={showNext}
+            className="absolute right-4 top-1/2 z-20 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-black/32 text-lg text-white shadow-panel transition-transform active:scale-95"
+            aria-label="Следующее фото"
+          >
+            →
+          </button>
+        </>
+      ) : null}
+
+      <div className="pointer-events-none absolute bottom-4 left-4 z-20 rounded-full bg-black/28 px-3 py-1 text-[0.7rem] font-medium text-white/76">
+        Сначала фото, потом решение
+      </div>
     </div>
   )
 }
