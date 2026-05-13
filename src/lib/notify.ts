@@ -42,7 +42,13 @@ function stripWebApp(buttons?: InlineButton[]): InlineButton[] | undefined {
   return buttons.map((b) => ('web_app' in b ? { text: b.text, url: b.web_app.url } : b))
 }
 
-interface TgResponse { ok: boolean; status: number }
+interface TgResponse { ok: boolean; status: number; body: string }
+
+interface PhotoFile {
+  buffer: Buffer
+  filename: string
+  contentType: string
+}
 
 function callTgOnce(method: string, body: Record<string, unknown>, timeoutMs: number): Promise<TgResponse | null> {
   return new Promise((resolve) => {
@@ -62,10 +68,11 @@ function callTgOnce(method: string, body: Record<string, unknown>, timeoutMs: nu
         timeout: timeoutMs,
       },
       (res) => {
-        res.on('data', () => {})
+        let data = ''
+        res.on('data', (chunk) => { data += String(chunk) })
         res.on('end', () => {
           const status = res.statusCode ?? 0
-          resolve({ ok: status >= 200 && status < 300, status })
+          resolve({ ok: status >= 200 && status < 300, status, body: data.slice(0, 500) })
         })
       },
     )
@@ -84,7 +91,133 @@ async function callTg(method: string, body: Record<string, unknown>, timeoutMs: 
     if (res && (res.ok || (res.status >= 400 && res.status < 500))) return res
     if (attempt < 4) await new Promise((r) => setTimeout(r, 500))
   }
-  console.error(`[notify] callTg ${method}: все 4 попытки провалились`)
+  return null
+}
+
+function downloadPhotoOnce(photoUrl: string, timeoutMs: number): Promise<PhotoFile | null> {
+  return new Promise((resolve) => {
+    let parsed: URL
+    try {
+      parsed = new URL(photoUrl)
+    } catch {
+      return resolve(null)
+    }
+
+    const req = httpsRequest(
+      {
+        host: parsed.hostname,
+        port: parsed.port ? Number(parsed.port) : 443,
+        path: `${parsed.pathname}${parsed.search}`,
+        method: 'GET',
+        family: 4,
+        timeout: timeoutMs,
+      },
+      (res) => {
+        const status = res.statusCode ?? 0
+        if (status >= 300 && status < 400 && res.headers.location) {
+          res.resume()
+          downloadPhotoOnce(new URL(res.headers.location, parsed).toString(), timeoutMs)
+            .then(resolve)
+            .catch(() => resolve(null))
+          return
+        }
+
+        if (status < 200 || status >= 300) {
+          res.resume()
+          resolve(null)
+          return
+        }
+
+        const chunks: Buffer[] = []
+        let size = 0
+        res.on('data', (chunk: Buffer) => {
+          size += chunk.length
+          // Telegram photo limit is much higher, but this protects memory on bad URLs.
+          if (size <= 10 * 1024 * 1024) chunks.push(chunk)
+        })
+        res.on('end', () => {
+          if (size === 0 || size > 10 * 1024 * 1024) {
+            resolve(null)
+            return
+          }
+
+          const filename = decodeURIComponent(parsed.pathname.split('/').pop() || 'photo.jpg')
+          const contentType = String(res.headers['content-type'] || 'image/jpeg').split(';')[0]
+          resolve({ buffer: Buffer.concat(chunks), filename, contentType })
+        })
+      },
+    )
+    req.on('timeout', () => { req.destroy(new Error('TIMEOUT')) })
+    req.on('error', () => { resolve(null) })
+    req.end()
+  })
+}
+
+function callTgMultipartOnce(
+  method: string,
+  fields: Record<string, string>,
+  file: PhotoFile,
+  timeoutMs: number,
+): Promise<TgResponse | null> {
+  return new Promise((resolve) => {
+    if (!BOT_TOKEN) return resolve(null)
+
+    const boundary = `----fitmatch-${Date.now()}-${Math.random().toString(16).slice(2)}`
+    const parts: Buffer[] = []
+
+    for (const [name, value] of Object.entries(fields)) {
+      parts.push(Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`,
+      ))
+    }
+
+    parts.push(Buffer.from(
+      `--${boundary}\r\nContent-Disposition: form-data; name="photo"; filename="${file.filename.replace(/"/g, '')}"\r\nContent-Type: ${file.contentType}\r\n\r\n`,
+    ))
+    parts.push(file.buffer)
+    parts.push(Buffer.from(`\r\n--${boundary}--\r\n`))
+
+    const payload = Buffer.concat(parts)
+    const req = httpsRequest(
+      {
+        host: 'api.telegram.org',
+        port: 443,
+        path: `/bot${BOT_TOKEN}/${method}`,
+        method: 'POST',
+        family: 4,
+        headers: {
+          'content-type': `multipart/form-data; boundary=${boundary}`,
+          'content-length': payload.length,
+        },
+        timeout: timeoutMs,
+      },
+      (res) => {
+        let data = ''
+        res.on('data', (chunk) => { data += String(chunk) })
+        res.on('end', () => {
+          const status = res.statusCode ?? 0
+          resolve({ ok: status >= 200 && status < 300, status, body: data.slice(0, 500) })
+        })
+      },
+    )
+    req.on('timeout', () => { req.destroy(new Error('TIMEOUT')) })
+    req.on('error', () => { resolve(null) })
+    req.write(payload)
+    req.end()
+  })
+}
+
+async function callTgMultipart(
+  method: string,
+  fields: Record<string, string>,
+  file: PhotoFile,
+  timeoutMs: number,
+): Promise<TgResponse | null> {
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    const res = await callTgMultipartOnce(method, fields, file, timeoutMs)
+    if (res && (res.ok || (res.status >= 400 && res.status < 500))) return res
+    if (attempt < 4) await new Promise((r) => setTimeout(r, 500))
+  }
   return null
 }
 
@@ -103,7 +236,7 @@ async function sendMessage(chatId: string, text: string, buttons?: InlineButton[
     res = await callTg('sendMessage', payload(stripWebApp(buttons)), 5000)
   }
   if (!res || !res.ok) {
-    console.error(`[notify] sendMessage ${chatId}: HTTP ${res?.status}`)
+    console.error(`[notify] sendMessage ${chatId}: HTTP ${res?.status} ${res?.body ?? ''}`)
   }
 }
 
@@ -121,20 +254,114 @@ async function sendPhoto(chatId: string, photoUrl: string, caption: string, butt
     res = await callTg('sendPhoto', payload(stripWebApp(buttons)), 10000)
   }
   if (!res || !res.ok) {
-    console.error(`[notify] sendPhoto ${chatId}: HTTP ${res?.status}`)
+    const uploaded = await sendPhotoUpload(chatId, photoUrl, caption, buttons)
+    if (uploaded) return true
+    console.error(`[notify] sendPhoto ${chatId}: HTTP ${res?.status} ${res?.body ?? ''}`)
     return false
   }
   return true
 }
 
+async function sendPhotoUpload(chatId: string, photoUrl: string, caption: string, buttons?: InlineButton[]): Promise<boolean> {
+  const file = await downloadPhotoOnce(photoUrl, 10000)
+  if (!file) return false
+
+  const fields = (btn?: InlineButton[]): Record<string, string> => ({
+    chat_id: chatId,
+    caption,
+    parse_mode: 'HTML',
+    ...(btn && btn.length > 0 ? { reply_markup: JSON.stringify({ inline_keyboard: [btn] }) } : {}),
+  })
+
+  let res = await callTgMultipart('sendPhoto', fields(buttons), file, 15000)
+  if (res && !res.ok && buttons?.some((b) => 'web_app' in b)) {
+    res = await callTgMultipart('sendPhoto', fields(stripWebApp(buttons)), file, 15000)
+  }
+
+  if (!res || !res.ok) {
+    console.error(`[notify] sendPhotoUpload ${chatId}: HTTP ${res?.status} ${res?.body ?? ''}`)
+    return false
+  }
+
+  return true
+}
+
+function formatProfileLines(profile: {
+  name: string
+  age?: number
+  gender?: string
+  club?: string
+  city?: string
+  about?: string
+}, intro: string): string {
+  const lines: string[] = []
+  lines.push(`${intro} <b>${escapeHtml(profile.name)}</b>${profile.age ? `, ${profile.age}` : ''}`)
+
+  if (profile.club || profile.city) {
+    const loc = [profile.club, profile.city].filter(Boolean).map((x) => escapeHtml(String(x))).join(' · ')
+    lines.push(`🏋️ ${loc}`)
+  }
+
+  if (profile.about) {
+    const about = profile.about.length > 300 ? `${profile.about.slice(0, 300)}…` : profile.about
+    lines.push(`\n${escapeHtml(about)}`)
+  }
+
+  return lines.join('\n')
+}
+
+async function sendProfileNotification(
+  chatId: string,
+  profileId: string,
+  fallbackText: string,
+  buttons: InlineButton[],
+  intro: string,
+  outro: string,
+): Promise<void> {
+  const profile = await getProfile(profileId).catch(() => null)
+
+  if (!profile) {
+    await sendMessage(chatId, fallbackText, buttons)
+    return
+  }
+
+  const text = `${formatProfileLines(profile, intro)}\n\n${outro}`
+  const photo = profile.photos?.[0]
+
+  if (photo) {
+    const sent = await sendPhoto(chatId, photo, text, buttons)
+    if (sent) return
+  }
+
+  await sendMessage(chatId, text, buttons)
+}
+
 // Уведомление при взаимном мэтче — обоим пользователям (только telegram)
 export async function notifyMatch(userAId: string, userBId: string): Promise<void> {
   const button = miniAppButton('⚡ Открыть мэтчи', '/matches')
-  const message = '🎉 У тебя взаимная симпатия! Открой приложение, чтобы увидеть контакт.'
   const [aTg, bTg] = await Promise.all([isTelegram(userAId), isTelegram(userBId)])
+
   await Promise.allSettled([
-    aTg ? sendMessage(userAId, message, [button]) : Promise.resolve(),
-    bTg ? sendMessage(userBId, message, [button]) : Promise.resolve(),
+    aTg
+      ? sendProfileNotification(
+          userAId,
+          userBId,
+          '🎉 У тебя взаимная симпатия! Открой приложение, чтобы увидеть контакт.',
+          [button],
+          '🎉 У тебя мэтч с',
+          'Вы взаимно лайкнули друг друга. Открой приложение, чтобы увидеть контакт.',
+        )
+      : Promise.resolve(),
+    bTg
+      ? sendProfileNotification(
+          userBId,
+          userAId,
+          '🎉 У тебя взаимная симпатия! Открой приложение, чтобы увидеть контакт.',
+          [button],
+          '🎉 У тебя мэтч с',
+          'Вы взаимно лайкнули друг друга. Открой приложение, чтобы увидеть контакт.',
+        )
+      : Promise.resolve(),
   ])
 }
 
@@ -154,19 +381,8 @@ export async function notifyNewLike(targetId: string, likerId: string): Promise<
     return
   }
 
-  const parts: string[] = []
-  parts.push(`❤️ Тебя лайкнул${liker.gender === 'female' ? 'а' : ''} <b>${escapeHtml(liker.name)}</b>${liker.age ? `, ${liker.age}` : ''}`)
-  if (liker.club || liker.city) {
-    const loc = [liker.club, liker.city].filter(Boolean).map(escapeHtml).join(' · ')
-    parts.push(`🏋️ ${loc}`)
-  }
-  if (liker.about) {
-    const about = liker.about.length > 300 ? liker.about.slice(0, 300) + '…' : liker.about
-    parts.push(`\n${escapeHtml(about)}`)
-  }
-  parts.push('\nОткрой приложение, чтобы ответить.')
-
-  const caption = parts.join('\n')
+  const intro = `❤️ Тебя лайкнул${liker.gender === 'female' ? 'а' : ''}`
+  const caption = `${formatProfileLines(liker, intro)}\n\nОткрой приложение, чтобы ответить.`
   const photo = liker.photos?.[0]
 
   if (photo) {
