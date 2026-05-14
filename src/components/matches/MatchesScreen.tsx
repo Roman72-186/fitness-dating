@@ -48,11 +48,9 @@ export function MatchesScreen() {
     <div className="flex h-full min-h-0 flex-col px-4 pb-24 pt-6">
       <header className="mb-5 flex shrink-0 items-start justify-between gap-4">
         <div>
-          <p className="mb-2 text-[0.7rem] uppercase tracking-[0.26em] text-brand-text-muted">Контакты</p>
           <h1 className="font-display text-[2rem] leading-none text-brand-text">Мэтчи</h1>
         </div>
-        <div className="rounded-[1.4rem] border border-white/10 bg-brand-bg-2 px-4 py-3 text-right shadow-panel">
-          <p className="text-[0.7rem] uppercase tracking-[0.22em] text-brand-text-muted">Открыто</p>
+        <div className="rounded-[1.4rem] border border-white/10 bg-brand-bg-2 px-4 py-2 text-right shadow-panel">
           <p className="font-display text-3xl text-brand-text">{matches.length}</p>
         </div>
       </header>

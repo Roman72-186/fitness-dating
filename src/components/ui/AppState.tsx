@@ -4,7 +4,7 @@ import type { LucideIcon } from 'lucide-react'
 import { LoaderCircle } from 'lucide-react'
 
 interface AppStateProps {
-  label: string
+  label?: string
   title: string
   description?: string
   actionLabel?: string
@@ -12,6 +12,7 @@ interface AppStateProps {
   icon?: LucideIcon
   loading?: boolean
   className?: string
+  titleClassName?: string
 }
 
 export function AppState({
@@ -23,7 +24,10 @@ export function AppState({
   icon: Icon,
   loading,
   className = '',
+  titleClassName = 'mt-3 font-display text-3xl leading-none text-brand-text',
 }: AppStateProps) {
+  const resolvedTitleClassName = label ? titleClassName : titleClassName.replace('mt-3 ', '')
+
   return (
     <div className={`flex h-full min-h-[100dvh] items-center justify-center px-6 py-10 text-center ${className}`}>
       <section className="w-full max-w-sm">
@@ -35,8 +39,10 @@ export function AppState({
           ) : null}
         </div>
 
-        <p className="text-[0.7rem] font-semibold uppercase tracking-[0.22em] text-brand-text-muted">{label}</p>
-        <h1 className="mt-3 font-display text-3xl leading-none text-brand-text">{title}</h1>
+        {label ? (
+          <p className="text-[0.7rem] font-semibold uppercase tracking-[0.22em] text-brand-text-muted">{label}</p>
+        ) : null}
+        <h1 className={resolvedTitleClassName}>{title}</h1>
 
         {description ? (
           <p className="mx-auto mt-4 max-w-[32ch] text-sm leading-6 text-brand-text-muted">{description}</p>

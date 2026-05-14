@@ -47,12 +47,11 @@ export function ProfileCard() {
     <div className="h-full min-h-0 overflow-y-auto px-4 pb-24 pt-6">
       <header className="mb-5 flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <p className="mb-2 text-[0.7rem] uppercase tracking-[0.26em] text-brand-text-muted">Твой образ</p>
           <h1 className="font-display text-[2rem] leading-none text-brand-text">Профиль</h1>
         </div>
         <div className="shrink-0 rounded-[1.4rem] border border-white/10 bg-brand-bg-2 px-4 py-3 text-right shadow-panel">
           <p className="text-[0.7rem] uppercase tracking-[0.22em] text-brand-text-muted">Статус</p>
-          <p className="font-display text-2xl text-brand-text">В эфире</p>
+          <p className="font-display text-2xl text-brand-text">АКТИВЕН</p>
         </div>
       </header>
 
@@ -62,9 +61,6 @@ export function ProfileCard() {
           <div className="absolute inset-0 bg-gradient-to-t from-brand-bg via-brand-bg/18 to-transparent" />
           <div className="absolute inset-x-0 bottom-0 p-5">
             <div className="mb-3 flex flex-wrap gap-2">
-              <span className="rounded-full border border-white/12 bg-black/18 px-3 py-1 text-[0.72rem] uppercase tracking-[0.18em] text-white/78">
-                Активная анкета
-              </span>
               {profile.club ? (
                 <span className="rounded-full border border-white/12 bg-black/18 px-3 py-1 text-[0.72rem] uppercase tracking-[0.18em] text-white/78">
                   {profile.club}
@@ -84,16 +80,6 @@ export function ProfileCard() {
             <p className="mt-3 text-sm leading-7 text-brand-text">{profileSummary}</p>
           </section>
 
-          <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="rounded-[1.35rem] bg-brand-bg-3/78 p-4">
-              <p className="text-[0.68rem] uppercase tracking-[0.2em] text-brand-text-muted">Город</p>
-              <p className="mt-3 text-sm text-brand-text">{profile.city || 'Не указан'}</p>
-            </div>
-            <div className="rounded-[1.35rem] bg-brand-bg-3/78 p-4">
-              <p className="text-[0.68rem] uppercase tracking-[0.2em] text-brand-text-muted">Клуб</p>
-              <p className="mt-3 text-sm text-brand-text">{profile.club || 'Не указан'}</p>
-            </div>
-          </section>
         </div>
       </article>
     </div>

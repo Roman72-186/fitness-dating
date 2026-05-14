@@ -119,8 +119,8 @@ export function FeedScreen() {
     return (
       <AppState
         icon={RefreshCcw}
-        label="Лента пуста"
-        title="Пока пусто"
+        title="ЛЕНТА ПУСТА"
+        titleClassName="font-display text-3xl uppercase leading-none tracking-[0.04em] text-brand-text"
         actionLabel="Проверить"
         onAction={refresh}
       />
