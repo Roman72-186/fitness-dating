@@ -1,7 +1,9 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useCallback, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
+import { AppState } from '@/components/ui/AppState'
+import { RefreshCcw, Sparkles } from 'lucide-react'
 import { SwipeCard } from './SwipeCard'
 import { ActionButtons } from './ActionButtons'
 import { useFeed } from '@/hooks/useFeed'
@@ -32,28 +34,22 @@ function MatchModal({
       >
         <div className="mb-4 flex items-center justify-between gap-4">
           <span className="rounded-full bg-[color:color-mix(in_oklab,var(--color-brand-accent)_20%,transparent)] px-3 py-1 text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-white">
-            Взаимный интерес
+            Мэтч
           </span>
-          <span className="text-3xl text-brand-accent">✦</span>
+          <Sparkles className="h-7 w-7 text-brand-accent" aria-hidden="true" />
         </div>
 
-        <h2 className="display-title text-[2rem] font-semibold leading-[0.95] text-white">
-          Это мэтч
-        </h2>
+        <h2 className="font-display text-[2rem] font-semibold leading-none text-white">Это мэтч</h2>
         <p className="mt-3 max-w-[28ch] text-sm leading-6 text-white/78">
-          У тебя совпадение с <span className="font-semibold text-white">{profileName}</span>. Теперь контакт уже не холодный.
+          Совпадение с <span className="font-semibold text-white">{profileName}</span>.
         </p>
-
-        <div className="mt-5 rounded-[1.4rem] bg-white/6 p-4 text-sm text-white/74">
-          Написать можно будет на экране мэтчей. Сейчас можно сразу продолжить поиск.
-        </div>
 
         <button
           type="button"
           onClick={onClose}
           className="mt-5 w-full rounded-[1.2rem] bg-brand-accent px-5 py-4 text-sm font-semibold text-brand-bg transition-transform active:scale-[0.99]"
         >
-          Вернуться в ленту
+          Продолжить
         </button>
       </motion.div>
     </motion.div>
@@ -103,83 +99,42 @@ export function FeedScreen() {
   }
 
   if (loading) {
-    return (
-      <div className="flex h-full flex-col">
-        <div className="px-4 pt-5">
-          <p className="text-[0.7rem] font-semibold uppercase tracking-[0.22em] text-brand-text-muted">
-            FitMatch
-          </p>
-          <h1 className="display-title mt-2 text-3xl font-semibold text-brand-text">
-            Собираем ленту
-          </h1>
-        </div>
-        <div className="flex flex-1 items-center justify-center">
-          <div className="h-12 w-12 animate-spin rounded-full border-4 border-brand-accent border-t-transparent" />
-        </div>
-      </div>
-    )
+    return <AppState loading label="FitMatch" title="Собираем ленту" />
   }
 
   if (error) {
     return (
-      <div className="flex h-full flex-col px-4 pb-6 pt-5">
-        <div className="rounded-[1.8rem] border border-white/10 bg-brand-bg-2/80 p-5 shadow-panel">
-          <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-brand-text-muted">
-            Лента временно недоступна
-          </p>
-          <h1 className="display-title mt-3 text-3xl font-semibold text-brand-text">
-            Нужна ещё одна попытка
-          </h1>
-          <p className="mt-3 text-sm leading-6 text-brand-text/78">{error}</p>
-          <button
-            type="button"
-            onClick={refresh}
-            className="mt-5 rounded-[1.1rem] bg-brand-accent px-6 py-3 text-sm font-semibold text-brand-bg"
-          >
-            Обновить ленту
-          </button>
-        </div>
-      </div>
+      <AppState
+        icon={RefreshCcw}
+        label="Лента недоступна"
+        title="Повтори запрос"
+        description={error}
+        actionLabel="Обновить"
+        onAction={refresh}
+      />
     )
   }
 
   if (profiles.length === 0) {
     return (
-      <div className="flex h-full flex-col px-4 pb-6 pt-5">
-        <div className="rounded-[1.9rem] border border-white/10 bg-brand-bg-2/80 p-5 shadow-panel">
-          <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-brand-text-muted">
-            Лента выдохлась
-          </p>
-          <h3 className="display-title mt-3 text-3xl font-semibold text-brand-text">
-            Новых анкет пока нет
-          </h3>
-          <p className="mt-3 max-w-[32ch] text-sm leading-6 text-brand-text/78">
-            Вернись позже: как только появятся новые люди из клубов и города, они сразу попадут сюда.
-          </p>
-          <button
-            type="button"
-            onClick={refresh}
-            className="mt-5 rounded-[1.1rem] bg-brand-accent px-6 py-3 text-sm font-semibold text-brand-bg"
-          >
-            Проверить снова
-          </button>
-        </div>
-      </div>
+      <AppState
+        icon={RefreshCcw}
+        label="Лента пуста"
+        title="Пока пусто"
+        actionLabel="Проверить"
+        onAction={refresh}
+      />
     )
   }
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="px-4 pt-5">
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="shrink-0 px-4 pt-5">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-brand-text-muted">
-              FitMatch
-            </p>
-            <h1 className="display-title mt-2 text-[2.15rem] font-semibold leading-[0.95] text-brand-text">
+            <p className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-brand-text-muted">FitMatch</p>
+            <h1 className="font-display mt-2 text-[2.05rem] font-semibold leading-none text-brand-text">
               Лента
-              <br />
-              живых анкет
             </h1>
           </div>
           <div className="rounded-[1.2rem] border border-white/10 bg-white/5 px-3 py-2 text-right">
@@ -189,13 +144,9 @@ export function FeedScreen() {
             <div className="mt-1 text-lg font-semibold text-brand-text">{profiles.length}</div>
           </div>
         </div>
-
-        <p className="mt-3 max-w-[34ch] text-sm leading-6 text-brand-text/78">
-          Сначала смотри фото и атмосферу человека. Потом выбирай: идти дальше или оставить контакт на потом.
-        </p>
       </div>
 
-      <div className="relative mx-4 mt-4 flex-1">
+      <div className="relative mx-4 mt-4 min-h-0 flex-1">
         {profiles.slice(1, 3).map((profile, index) => (
           <div
             key={profile.user_id}

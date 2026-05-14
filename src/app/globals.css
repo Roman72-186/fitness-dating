@@ -98,5 +98,16 @@ button,
 
 .display-title {
   font-family: var(--font-display), var(--font-body), system-ui, sans-serif;
-  letter-spacing: -0.04em;
+  letter-spacing: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }

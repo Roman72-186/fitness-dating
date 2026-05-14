@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Image from 'next/image'
+import { AppState } from '@/components/ui/AppState'
+import { UserRound } from 'lucide-react'
 import { useAuthStore } from '@/store/auth-store'
 import type { Profile } from '@/types'
 
@@ -31,43 +33,24 @@ export function ProfileCard() {
   }, [fetchProfile])
 
   if (loading) {
-    return (
-      <div className="flex h-full flex-col items-center justify-center px-6 text-center">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-brand-accent border-t-transparent" />
-        <p className="mt-5 font-display text-2xl text-brand-text">Собираем анкету</p>
-        <p className="mt-2 max-w-xs text-sm leading-6 text-brand-text-muted">Подтягиваем твой публичный образ так, как его увидят в ленте другие.</p>
-      </div>
-    )
+    return <AppState loading label="Профиль" title="Загружаем" />
   }
 
   if (!profile) {
-    return (
-      <div className="flex h-full flex-col items-center justify-center px-8 text-center">
-        <div className="rounded-full border border-white/10 bg-brand-bg-2 px-4 py-2 text-[0.72rem] uppercase tracking-[0.2em] text-brand-text-muted">
-          Профиль не собран
-        </div>
-        <h2 className="mt-4 font-display text-3xl text-brand-text">Анкета ещё не появилась</h2>
-        <p className="mt-3 max-w-xs text-sm leading-6 text-brand-text-muted">
-          Создай её через бота, чтобы лента видела не пустой слот, а внятный образ с фото и описанием.
-        </p>
-      </div>
-    )
+    return <AppState icon={UserRound} label="Профиль" title="Анкеты нет" />
   }
 
   const photo = profile.photos[0] ?? 'https://i.pravatar.cc/640'
-  const profileSummary = profile.about || 'Краткий текст о себе пока не добавлен. Лучше заполнить его в боте, чтобы анкета не выглядела немой.'
+  const profileSummary = profile.about || 'Описание не добавлено'
 
   return (
-    <div className="h-full overflow-y-auto px-4 pb-24 pt-6">
+    <div className="h-full min-h-0 overflow-y-auto px-4 pb-24 pt-6">
       <header className="mb-5 flex items-start justify-between gap-4">
-        <div className="max-w-[18rem]">
+        <div className="min-w-0">
           <p className="mb-2 text-[0.7rem] uppercase tracking-[0.26em] text-brand-text-muted">Твой образ</p>
-          <h1 className="font-display text-[2rem] leading-none text-brand-text">Профиль без суеты</h1>
-          <p className="mt-3 text-sm leading-6 text-brand-text-muted">
-            Здесь важна не скорость, а впечатление. Это спокойная витрина того, что увидят другие в момент выбора.
-          </p>
+          <h1 className="font-display text-[2rem] leading-none text-brand-text">Профиль</h1>
         </div>
-        <div className="rounded-[1.4rem] border border-white/10 bg-brand-bg-2 px-4 py-3 text-right shadow-panel">
+        <div className="shrink-0 rounded-[1.4rem] border border-white/10 bg-brand-bg-2 px-4 py-3 text-right shadow-panel">
           <p className="text-[0.7rem] uppercase tracking-[0.22em] text-brand-text-muted">Статус</p>
           <p className="font-display text-2xl text-brand-text">В эфире</p>
         </div>
@@ -95,14 +78,7 @@ export function ProfileCard() {
           </div>
         </div>
 
-        <div className="space-y-6 p-5">
-          <section className="rounded-[1.5rem] bg-brand-bg-3/75 p-4">
-            <p className="text-[0.7rem] uppercase tracking-[0.22em] text-brand-text-muted">Как ты выглядишь в ленте</p>
-            <p className="mt-3 text-sm leading-6 text-brand-text">
-              Спокойный, собранный профиль без лишнего шума. Этот экран не соревнуется с лентой и не давит на действие.
-            </p>
-          </section>
-
+        <div className="space-y-5 p-5">
           <section>
             <p className="text-[0.7rem] uppercase tracking-[0.22em] text-brand-text-muted">О себе</p>
             <p className="mt-3 text-sm leading-7 text-brand-text">{profileSummary}</p>
@@ -118,13 +94,6 @@ export function ProfileCard() {
               <p className="mt-3 text-sm text-brand-text">{profile.club || 'Не указан'}</p>
             </div>
           </section>
-
-          <div className="rounded-[1.35rem] border border-white/10 px-4 py-4">
-            <p className="text-[0.7rem] uppercase tracking-[0.22em] text-brand-text-muted">Редактирование</p>
-            <p className="mt-3 text-sm leading-6 text-brand-text-muted">
-              Менять анкету по-прежнему нужно через бота. Здесь задача одна: показать текущую версию без шума и догадок.
-            </p>
-          </div>
         </div>
       </article>
     </div>

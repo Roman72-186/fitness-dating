@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 interface Props {
   photos: string[]
@@ -39,11 +40,8 @@ export function PhotoCarousel({ photos, name, locationLabel }: Props) {
 
       <div className="absolute left-4 right-4 top-4 z-20 flex items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-2">
-          <span className="inline-flex w-fit items-center rounded-full border border-white/10 bg-black/30 px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.24em] text-white/82">
-            Активная лента
-          </span>
           {locationLabel ? (
-            <span className="inline-flex w-fit items-center rounded-full bg-white/12 px-3 py-1 text-xs font-medium text-white/88">
+            <span className="inline-flex w-fit max-w-[13rem] truncate rounded-full bg-white/12 px-3 py-1 text-xs font-medium text-white/88">
               {locationLabel}
             </span>
           ) : null}
@@ -72,25 +70,21 @@ export function PhotoCarousel({ photos, name, locationLabel }: Props) {
           <button
             type="button"
             onClick={showPrev}
-            className="absolute left-4 top-1/2 z-20 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-black/32 text-lg text-white shadow-panel transition-transform active:scale-95"
+            className="absolute left-4 top-1/2 z-20 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-black/32 text-white shadow-panel transition-transform active:scale-95"
             aria-label="Предыдущее фото"
           >
-            ←
+            <ChevronLeft className="h-5 w-5" aria-hidden="true" />
           </button>
           <button
             type="button"
             onClick={showNext}
-            className="absolute right-4 top-1/2 z-20 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-black/32 text-lg text-white shadow-panel transition-transform active:scale-95"
+            className="absolute right-4 top-1/2 z-20 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-black/32 text-white shadow-panel transition-transform active:scale-95"
             aria-label="Следующее фото"
           >
-            →
+            <ChevronRight className="h-5 w-5" aria-hidden="true" />
           </button>
         </>
       ) : null}
-
-      <div className="pointer-events-none absolute bottom-4 left-4 z-20 rounded-full bg-black/28 px-3 py-1 text-[0.7rem] font-medium text-white/76">
-        Сначала фото, потом решение
-      </div>
     </div>
   )
 }

@@ -1,8 +1,10 @@
 'use client'
 
+import { AlertTriangle, ClipboardPenLine } from 'lucide-react'
 import { useToken } from '@/hooks/useToken'
 import { useProfileCheck } from '@/hooks/useProfileCheck'
 import { useAuthStore } from '@/store/auth-store'
+import { AppState } from '@/components/ui/AppState'
 
 interface Props {
   children: React.ReactNode
@@ -26,50 +28,29 @@ export function AppShell({ children }: Props) {
   const { userId, hasProfile } = useAuthStore()
 
   if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="w-10 h-10 border-4 border-brand-accent border-t-transparent rounded-full animate-spin" />
-      </div>
-    )
+    return <AppState loading label="FitMatch" title="Загрузка" />
   }
 
   if (error) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center p-8 text-center">
-        <div className="mb-4 text-4xl">⚠️</div>
-        <h1 className="mb-2 text-xl font-bold text-brand-text">Ошибка входа</h1>
-        <p className="text-brand-text-muted text-sm">{error}</p>
-      </div>
-    )
+    return <AppState icon={AlertTriangle} label="Ошибка входа" title="Сессия не открылась" description={error} />
   }
 
-  // Авторизованный TG-пользователь, но анкеты нет → отправляем в бот заполнять
   const isGuest = !userId || userId.startsWith('guest_')
+
   if (!isGuest && hasProfile === false) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center p-8 text-center">
-        <div className="mb-4 text-5xl">📝</div>
-        <h1 className="mb-2 text-xl font-bold text-brand-text">Анкета не заполнена</h1>
-        <p className="mb-6 text-brand-text-muted text-sm">
-          Чтобы знакомиться, заполни анкету в боте. После этого вернись сюда — лента откроется.
-        </p>
-        <button
-          onClick={openRegistrationBot}
-          className="rounded-full bg-brand-accent px-6 py-3 text-base font-semibold text-white shadow-lg active:opacity-80"
-        >
-          Заполнить анкету в боте
-        </button>
-      </div>
+      <AppState
+        icon={ClipboardPenLine}
+        label="Анкета"
+        title="Профиль пустой"
+        actionLabel="Открыть бота"
+        onAction={openRegistrationBot}
+      />
     )
   }
 
-  // Ещё проверяем профиль — показываем спиннер
   if (!isGuest && hasProfile === null) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="w-10 h-10 border-4 border-brand-accent border-t-transparent rounded-full animate-spin" />
-      </div>
-    )
+    return <AppState loading label="Профиль" title="Проверка" />
   }
 
   return <>{children}</>
