@@ -8,12 +8,12 @@
   --color-brand-bg-2: oklch(0.2 0.022 255);
   --color-brand-bg-3: oklch(0.26 0.028 255);
   --color-brand-line: oklch(0.36 0.03 250);
-  --color-brand-accent: oklch(0.72 0.145 48);
-  --color-brand-accent-2: oklch(0.68 0.102 24);
+  --color-brand-accent: #00bdc7;
+  --color-brand-accent-2: #00bdc7;
   --color-brand-text: oklch(0.94 0.012 70);
   --color-brand-text-muted: oklch(0.72 0.018 240);
   --color-brand-like: oklch(0.74 0.162 152);
-  --color-brand-skip: oklch(0.67 0.176 28);
+  --color-brand-skip: #00bdc7;
   --space-2xs: 0.25rem;
   --space-xs: 0.5rem;
   --space-sm: 0.75rem;
