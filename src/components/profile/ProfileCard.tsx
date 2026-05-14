@@ -1,16 +1,26 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import { AppState } from '@/components/ui/AppState'
+import { AdminLogin } from '@/components/admin/AdminLogin'
+import { AdminStats } from '@/components/admin/AdminStats'
 import { UserRound } from 'lucide-react'
 import { useAuthStore } from '@/store/auth-store'
 import type { Profile } from '@/types'
+
+type AdminMode = 'profile' | 'login' | 'stats'
+
+const ADMIN_TAP_LIMIT = 3
+const ADMIN_TAP_WINDOW_MS = 1200
 
 export function ProfileCard() {
   const { token } = useAuthStore()
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
+  const [adminMode, setAdminMode] = useState<AdminMode>('profile')
+  const [adminToken, setAdminToken] = useState<string | null>(null)
+  const adminTapState = useRef({ count: 0, lastTapAt: 0 })
 
   const fetchProfile = useCallback(async () => {
     if (!token) return
@@ -32,6 +42,36 @@ export function ProfileCard() {
     fetchProfile()
   }, [fetchProfile])
 
+  function handleAdminTap(): void {
+    const now = Date.now()
+    const isInsideWindow = now - adminTapState.current.lastTapAt <= ADMIN_TAP_WINDOW_MS
+    const nextCount = isInsideWindow ? adminTapState.current.count + 1 : 1
+
+    adminTapState.current = { count: nextCount, lastTapAt: now }
+
+    if (nextCount >= ADMIN_TAP_LIMIT) {
+      adminTapState.current = { count: 0, lastTapAt: 0 }
+      setAdminMode(adminToken ? 'stats' : 'login')
+    }
+  }
+
+  function handleBackToProfile(): void {
+    setAdminMode('profile')
+  }
+
+  function handleAdminSuccess(nextToken: string): void {
+    setAdminToken(nextToken)
+    setAdminMode('stats')
+  }
+
+  if (adminMode === 'login') {
+    return <AdminLogin onBack={handleBackToProfile} onSuccess={handleAdminSuccess} />
+  }
+
+  if (adminMode === 'stats' && adminToken) {
+    return <AdminStats token={adminToken} onBack={handleBackToProfile} />
+  }
+
   if (loading) {
     return <AppState loading label="Профиль" title="Загружаем" />
   }
@@ -47,7 +87,14 @@ export function ProfileCard() {
     <div className="h-full min-h-0 overflow-y-auto px-4 pb-24 pt-6">
       <header className="mb-5 flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="font-display text-[2rem] leading-none text-brand-text">Профиль</h1>
+          <button
+            type="button"
+            onClick={handleAdminTap}
+            className="block text-left font-display text-[2rem] leading-none text-brand-text"
+            aria-label="Профиль"
+          >
+            Профиль
+          </button>
         </div>
         <div className="shrink-0 rounded-[1.4rem] border border-white/10 bg-brand-bg-2 px-4 py-3 text-right shadow-panel">
           <p className="text-[0.7rem] uppercase tracking-[0.22em] text-brand-text-muted">Статус</p>
@@ -79,7 +126,6 @@ export function ProfileCard() {
             <p className="text-[0.7rem] uppercase tracking-[0.22em] text-brand-text-muted">О себе</p>
             <p className="mt-3 text-sm leading-7 text-brand-text">{profileSummary}</p>
           </section>
-
         </div>
       </article>
     </div>
