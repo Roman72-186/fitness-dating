@@ -19,12 +19,7 @@ export function ActionButtons({ onLike, onSkip, disabled }: Props) {
           className="flex min-h-[4.5rem] items-center justify-between rounded-[1.4rem] border border-brand-skip/35 bg-[color:color-mix(in_oklab,var(--color-brand-skip)_12%,var(--color-brand-bg-2))] px-4 py-3 text-left text-brand-text transition-transform active:scale-[0.98] disabled:opacity-40"
           aria-label="Пропустить"
         >
-          <div>
-            <div className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-brand-text-muted">
-              Пропуск
-            </div>
-            <div className="mt-1 text-base font-semibold text-white">Не моё</div>
-          </div>
+          <div className="text-base font-semibold text-white">Не моё</div>
           <X className="h-7 w-7 text-brand-skip" aria-hidden="true" />
         </button>
 
@@ -35,12 +30,7 @@ export function ActionButtons({ onLike, onSkip, disabled }: Props) {
           className="flex min-h-[4.5rem] items-center justify-between rounded-[1.4rem] border border-brand-like/35 bg-[color:color-mix(in_oklab,var(--color-brand-like)_14%,var(--color-brand-bg-2))] px-4 py-3 text-left text-brand-text transition-transform active:scale-[0.98] disabled:opacity-40"
           aria-label="Лайк"
         >
-          <div>
-            <div className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-brand-text-muted">
-              Лайк
-            </div>
-            <div className="mt-1 text-base font-semibold text-white">Интересно</div>
-          </div>
+          <div className="text-base font-semibold text-white">Интересно</div>
           <Heart className="h-7 w-7 fill-current text-brand-like" aria-hidden="true" />
         </button>
       </div>

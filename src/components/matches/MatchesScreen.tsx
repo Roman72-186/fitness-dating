@@ -57,8 +57,7 @@ export function MatchesScreen() {
 
       {matches.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center rounded-[2rem] border border-dashed border-white/12 bg-brand-bg-2/75 px-8 text-center">
-          <p className="text-[0.7rem] uppercase tracking-[0.24em] text-brand-text-muted">Пока пусто</p>
-          <h2 className="mt-3 font-display text-3xl text-brand-text">Мэтчей нет</h2>
+          <h2 className="font-display text-3xl text-brand-text">Мэтчей нет</h2>
         </div>
       ) : (
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">

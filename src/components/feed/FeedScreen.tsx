@@ -128,7 +128,7 @@ export function FeedScreen() {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
       <div className="shrink-0 px-4 pt-5">
         <div className="flex items-start justify-between gap-4">
           <div>
