@@ -58,7 +58,7 @@ describe('buildFeed', () => {
     expect(result).toHaveLength(0)
   })
 
-  it('показывает кандидата с interested_in=all (он принимает любой пол)', () => {
+  it('показывает кандидата с interested_in=all, если его пол подходит мне', () => {
     const result = buildFeed([p({ user_id: 'f-all', gender: 'female', interested_in: 'all' })], me, new Set())
     expect(result).toHaveLength(1)
   })
@@ -74,7 +74,7 @@ describe('buildFeed', () => {
       meAll,
       new Set(),
     )
-    expect(result).toHaveLength(3)
+    expect(result).toHaveLength(2)
   })
 
   it('tier1 (клуб + город) стоит перед tier2 (клуб, другой город)', () => {
@@ -145,7 +145,7 @@ describe('buildFeed', () => {
 
   it('interested_in=all у me + same club + same city → tier1', () => {
     const meAll = { ...me, interested_in: 'all' as const }
-    const t1 = p({ user_id: 't1', gender: 'male', interested_in: 'female', club: 'FitLife', city: 'Москва' })
+    const t1 = p({ user_id: 't1', gender: 'male', interested_in: 'male', club: 'FitLife', city: 'Москва' })
     const t4 = p({ user_id: 't4', gender: 'female', interested_in: 'male', club: 'X', city: 'Питер' })
     const result = buildFeed([t4, t1], meAll, new Set())
     expect(result.findIndex((x) => x.user_id === 't1')).toBeLessThan(

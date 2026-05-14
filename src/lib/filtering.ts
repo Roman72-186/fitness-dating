@@ -14,13 +14,11 @@ function isOtherClub(club?: string | null): boolean {
   return (club ?? '').trim().toLowerCase() === 'другой клуб'
 }
 
-// Взаимная совместимость по полу:
-// - me.interested_in='all' → подходит любой кандидат (их interested_in игнорируем)
-// - иначе: candidate.gender === me.interested_in И candidate.interested_in одобряет мой пол
 function isCompatible(candidate: Profile, me: Profile): boolean {
-  if (me.interested_in === 'all') return true
-  if (candidate.gender !== me.interested_in) return false
-  return candidate.interested_in === 'all' || candidate.interested_in === me.gender
+  const myAcceptsCandidate = me.interested_in === 'all' || candidate.gender === me.interested_in
+  const candidateAcceptsMe = candidate.interested_in === 'all' || candidate.interested_in === me.gender
+
+  return myAcceptsCandidate && candidateAcceptsMe
 }
 
 // 4-тировая приоритизация:
