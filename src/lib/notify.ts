@@ -18,6 +18,9 @@ function escapeHtml(s: string): string {
 type InlineButton =
   | { text: string; web_app: { url: string } }
   | { text: string; url: string }
+  | { text: string; callback_data: string }
+
+type InlineButtons = InlineButton[] | InlineButton[][]
 
 function fullUrl(path: string): string {
   const base = MINIAPP_URL.replace(/\/$/, '')
@@ -29,6 +32,10 @@ function miniAppButton(text: string, path: string): InlineButton {
   return { text, web_app: { url: fullUrl(path) } }
 }
 
+function callbackButton(text: string, callbackData: string): InlineButton {
+  return { text, callback_data: callbackData }
+}
+
 async function isTelegram(userId: string): Promise<boolean> {
   const platform = await getUserPlatform(userId).catch(() => null)
   // null трактуем как telegram — поведение старого кода (WATBOT-импорт без platform)
@@ -37,9 +44,24 @@ async function isTelegram(userId: string): Promise<boolean> {
 
 // Telegram может отвергнуть web_app-кнопку (если домен не привязан к боту или чат — не private).
 // В этом случае фоллбэк на обычную url-кнопку: откроется в браузере, но хоть откроется.
-function stripWebApp(buttons?: InlineButton[]): InlineButton[] | undefined {
+function isInlineKeyboardRows(buttons: InlineButtons): buttons is InlineButton[][] {
+  return Array.isArray(buttons[0])
+}
+
+function inlineKeyboard(buttons?: InlineButtons): InlineButton[][] | undefined {
+  if (!buttons || buttons.length === 0) return undefined
+  return isInlineKeyboardRows(buttons) ? buttons : [buttons]
+}
+
+function hasWebApp(buttons?: InlineButtons): boolean {
+  return inlineKeyboard(buttons)?.some((row) => row.some((b) => 'web_app' in b)) ?? false
+}
+
+function stripWebApp(buttons?: InlineButtons): InlineButtons | undefined {
   if (!buttons) return undefined
-  return buttons.map((b) => ('web_app' in b ? { text: b.text, url: b.web_app.url } : b))
+  return inlineKeyboard(buttons)?.map((row) =>
+    row.map((b) => ('web_app' in b ? { text: b.text, url: b.web_app.url } : b)),
+  )
 }
 
 interface TgResponse { ok: boolean; status: number; body: string }
@@ -48,6 +70,15 @@ interface PhotoFile {
   buffer: Buffer
   filename: string
   contentType: string
+}
+
+type RetryOptions = {
+  attempts?: number
+  delayMs?: number
+}
+
+function tgNetworkError(method: string, err: Error): TgResponse {
+  return { ok: false, status: 0, body: `${method}: ${err.message}` }
 }
 
 function callTgOnce(method: string, body: Record<string, unknown>, timeoutMs: number): Promise<TgResponse | null> {
@@ -77,19 +108,27 @@ function callTgOnce(method: string, body: Record<string, unknown>, timeoutMs: nu
       },
     )
     req.on('timeout', () => { req.destroy(new Error('TIMEOUT')) })
-    req.on('error', () => { resolve(null) })
+    req.on('error', (err) => { resolve(tgNetworkError(method, err)) })
     req.write(payload)
     req.end()
   })
 }
 
 // Telegram с VPS RU работает с перебоями — иногда первые 2-3 попытки таймаутятся.
-// Делаем до 4 попыток с короткой паузой; если 4xx — не ретраим.
-async function callTg(method: string, body: Record<string, unknown>, timeoutMs: number): Promise<TgResponse | null> {
-  for (let attempt = 1; attempt <= 4; attempt++) {
+// Для фото даём больше времени, потому что Telegram иногда дольше принимает media-запросы.
+async function callTg(
+  method: string,
+  body: Record<string, unknown>,
+  timeoutMs: number,
+  options: RetryOptions = {},
+): Promise<TgResponse | null> {
+  const attempts = options.attempts ?? 4
+  const delayMs = options.delayMs ?? 500
+
+  for (let attempt = 1; attempt <= attempts; attempt++) {
     const res = await callTgOnce(method, body, timeoutMs)
     if (res && (res.ok || (res.status >= 400 && res.status < 500))) return res
-    if (attempt < 4) await new Promise((r) => setTimeout(r, 500))
+    if (attempt < attempts) await new Promise((r) => setTimeout(r, delayMs))
   }
   return null
 }
@@ -201,7 +240,7 @@ function callTgMultipartOnce(
       },
     )
     req.on('timeout', () => { req.destroy(new Error('TIMEOUT')) })
-    req.on('error', () => { resolve(null) })
+    req.on('error', (err) => { resolve(tgNetworkError(method, err)) })
     req.write(payload)
     req.end()
   })
@@ -212,26 +251,30 @@ async function callTgMultipart(
   fields: Record<string, string>,
   file: PhotoFile,
   timeoutMs: number,
+  options: RetryOptions = {},
 ): Promise<TgResponse | null> {
-  for (let attempt = 1; attempt <= 4; attempt++) {
+  const attempts = options.attempts ?? 4
+  const delayMs = options.delayMs ?? 500
+
+  for (let attempt = 1; attempt <= attempts; attempt++) {
     const res = await callTgMultipartOnce(method, fields, file, timeoutMs)
     if (res && (res.ok || (res.status >= 400 && res.status < 500))) return res
-    if (attempt < 4) await new Promise((r) => setTimeout(r, 500))
+    if (attempt < attempts) await new Promise((r) => setTimeout(r, delayMs))
   }
   return null
 }
 
-async function sendMessage(chatId: string, text: string, buttons?: InlineButton[]): Promise<void> {
-  const payload = (btn?: InlineButton[]) => ({
+async function sendMessage(chatId: string, text: string, buttons?: InlineButtons): Promise<void> {
+  const payload = (btn?: InlineButtons) => ({
     chat_id: chatId,
     text,
     parse_mode: 'HTML',
     disable_web_page_preview: true,
-    ...(btn && btn.length > 0 ? { reply_markup: { inline_keyboard: [btn] } } : {}),
+    ...(btn && btn.length > 0 ? { reply_markup: { inline_keyboard: inlineKeyboard(btn) } } : {}),
   })
 
   let res = await callTg('sendMessage', payload(buttons), 5000)
-  if (res && !res.ok && buttons?.some((b) => 'web_app' in b)) {
+  if (res && !res.ok && hasWebApp(buttons)) {
     // web_app не прошёл — пробуем как обычный url
     res = await callTg('sendMessage', payload(stripWebApp(buttons)), 5000)
   }
@@ -240,42 +283,43 @@ async function sendMessage(chatId: string, text: string, buttons?: InlineButton[
   }
 }
 
-async function sendPhoto(chatId: string, photoUrl: string, caption: string, buttons?: InlineButton[]): Promise<boolean> {
-  const payload = (btn?: InlineButton[]) => ({
+async function sendPhotoByUrl(chatId: string, photoUrl: string, caption: string, buttons?: InlineButtons): Promise<boolean> {
+  const payload = (btn?: InlineButtons) => ({
     chat_id: chatId,
     photo: photoUrl,
     caption,
     parse_mode: 'HTML',
-    ...(btn && btn.length > 0 ? { reply_markup: { inline_keyboard: [btn] } } : {}),
+    ...(btn && btn.length > 0 ? { reply_markup: { inline_keyboard: inlineKeyboard(btn) } } : {}),
   })
 
-  let res = await callTg('sendPhoto', payload(buttons), 10000)
-  if (res && !res.ok && buttons?.some((b) => 'web_app' in b)) {
-    res = await callTg('sendPhoto', payload(stripWebApp(buttons)), 10000)
+  let res = await callTg('sendPhoto', payload(buttons), 20000, { attempts: 6, delayMs: 1500 })
+  if (res && !res.ok && hasWebApp(buttons)) {
+    res = await callTg('sendPhoto', payload(stripWebApp(buttons)), 20000, { attempts: 3, delayMs: 1500 })
   }
   if (!res || !res.ok) {
-    const uploaded = await sendPhotoUpload(chatId, photoUrl, caption, buttons)
-    if (uploaded) return true
-    console.error(`[notify] sendPhoto ${chatId}: HTTP ${res?.status} ${res?.body ?? ''}`)
+    console.error(`[notify] sendPhotoByUrl ${chatId}: HTTP ${res?.status} ${res?.body ?? ''}`)
     return false
   }
   return true
 }
 
-async function sendPhotoUpload(chatId: string, photoUrl: string, caption: string, buttons?: InlineButton[]): Promise<boolean> {
-  const file = await downloadPhotoOnce(photoUrl, 10000)
-  if (!file) return false
+async function sendPhotoUpload(chatId: string, photoUrl: string, caption: string, buttons?: InlineButtons): Promise<boolean> {
+  const file = await downloadPhotoOnce(photoUrl, 20000)
+  if (!file) {
+    console.error(`[notify] sendPhotoUpload ${chatId}: PHOTO_DOWNLOAD_FAILED`)
+    return false
+  }
 
-  const fields = (btn?: InlineButton[]): Record<string, string> => ({
+  const fields = (btn?: InlineButtons): Record<string, string> => ({
     chat_id: chatId,
     caption,
     parse_mode: 'HTML',
-    ...(btn && btn.length > 0 ? { reply_markup: JSON.stringify({ inline_keyboard: [btn] }) } : {}),
+    ...(btn && btn.length > 0 ? { reply_markup: JSON.stringify({ inline_keyboard: inlineKeyboard(btn) }) } : {}),
   })
 
-  let res = await callTgMultipart('sendPhoto', fields(buttons), file, 15000)
-  if (res && !res.ok && buttons?.some((b) => 'web_app' in b)) {
-    res = await callTgMultipart('sendPhoto', fields(stripWebApp(buttons)), file, 15000)
+  let res = await callTgMultipart('sendPhoto', fields(buttons), file, 30000, { attempts: 6, delayMs: 1500 })
+  if (res && !res.ok && hasWebApp(buttons)) {
+    res = await callTgMultipart('sendPhoto', fields(stripWebApp(buttons)), file, 30000, { attempts: 3, delayMs: 1500 })
   }
 
   if (!res || !res.ok) {
@@ -284,6 +328,14 @@ async function sendPhotoUpload(chatId: string, photoUrl: string, caption: string
   }
 
   return true
+}
+
+async function sendPhoto(chatId: string, photoUrl: string, caption: string, buttons?: InlineButtons): Promise<boolean> {
+  const uploaded = await sendPhotoUpload(chatId, photoUrl, caption, buttons)
+  if (uploaded) return true
+
+  // Если Telegram не принял multipart, пробуем дать ему прямую S3-ссылку.
+  return sendPhotoByUrl(chatId, photoUrl, caption, buttons)
 }
 
 function formatProfileLines(profile: {
@@ -314,7 +366,7 @@ async function sendProfileNotification(
   chatId: string,
   profileId: string,
   fallbackText: string,
-  buttons: InlineButton[],
+  buttons: InlineButtons,
   intro: string,
   outro: string,
 ): Promise<void> {
@@ -338,7 +390,10 @@ async function sendProfileNotification(
 
 // Уведомление при взаимном мэтче — обоим пользователям (только telegram)
 export async function notifyMatch(userAId: string, userBId: string): Promise<void> {
-  const button = miniAppButton('⚡ Открыть мэтчи', '/matches')
+  const matchButtons = [
+    [callbackButton('💥 Вместе в BF', '/b4459087')],
+    [miniAppButton('⚡ Открыть мэтчи', '/matches')],
+  ]
   const [aTg, bTg] = await Promise.all([isTelegram(userAId), isTelegram(userBId)])
 
   await Promise.allSettled([
@@ -347,7 +402,7 @@ export async function notifyMatch(userAId: string, userBId: string): Promise<voi
           userAId,
           userBId,
           '🎉 У тебя взаимная симпатия! Открой приложение, чтобы увидеть контакт.',
-          [button],
+          matchButtons,
           '🎉 У тебя мэтч с',
           'Вы взаимно лайкнули друг друга. Открой приложение, чтобы увидеть контакт.',
         )
@@ -357,7 +412,7 @@ export async function notifyMatch(userAId: string, userBId: string): Promise<voi
           userBId,
           userAId,
           '🎉 У тебя взаимная симпатия! Открой приложение, чтобы увидеть контакт.',
-          [button],
+          matchButtons,
           '🎉 У тебя мэтч с',
           'Вы взаимно лайкнули друг друга. Открой приложение, чтобы увидеть контакт.',
         )
