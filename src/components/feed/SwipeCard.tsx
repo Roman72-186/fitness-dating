@@ -41,7 +41,7 @@ export function SwipeCard({ profile, onLike, onSkip, disabled }: Props) {
           <PhotoCarousel photos={profile.photos} name={profile.name} current={0} onOpen={() => setPhotoOpen(true)} />
         </div>
 
-        <div className="relative z-10 -mt-9 px-2 pb-3">
+        <div className="relative z-10 px-2 py-3">
           <div className="rounded-[1.55rem] border border-white/10 bg-black/42 px-4 py-4 shadow-panel backdrop-blur-[14px]">
             <div className="min-w-0">
               <h2 className="font-display text-[1.78rem] font-semibold leading-none text-white">
