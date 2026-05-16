@@ -24,7 +24,7 @@ export function PhotoCarousel({ photos, name, current, onOpen }: Props) {
         src={list[safeCurrent]}
         alt={name}
         fill
-        className="object-cover"
+        className="object-cover object-top"
         sizes="(max-width: 448px) 100vw, 448px"
         priority={safeCurrent === 0}
       />

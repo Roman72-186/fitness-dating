@@ -21,6 +21,9 @@ export function SwipeCard({ profile, onLike, onSkip, disabled }: Props) {
   const [aboutExpanded, setAboutExpanded] = useState(false)
   const photo = profile.photos[0] ?? 'https://i.pravatar.cc/400'
   const canExpandAbout = profile.about.length > 110
+  const aboutPreview = canExpandAbout
+    ? `${profile.about.slice(0, 118).trim().replace(/[.,!?;:\s]+$/, '')}...`
+    : profile.about
   const infoItems = [
     profile.club && `Клуб: ${profile.club}`,
     profile.city && `Город: ${profile.city}`,
@@ -68,19 +71,12 @@ export function SwipeCard({ profile, onLike, onSkip, disabled }: Props) {
                   aria-expanded={aboutExpanded}
                 >
                   <span className={aboutExpanded ? 'block' : 'line-clamp-3 block'}>
-                    {profile.about}
+                    {aboutExpanded ? profile.about : aboutPreview}
+                    {canExpandAbout && !aboutExpanded ? (
+                      <em className="ml-1 text-white/70">еще</em>
+                    ) : null}
                   </span>
                 </button>
-
-                {canExpandAbout ? (
-                  <button
-                    type="button"
-                    onClick={() => setAboutExpanded((value) => !value)}
-                    className="mt-2 rounded-full border border-white/10 bg-white/8 px-3 py-1 text-xs font-semibold text-white/82 transition-colors active:bg-white/14"
-                  >
-                    {aboutExpanded ? 'Свернуть' : 'Развернуть'}
-                  </button>
-                ) : null}
               </div>
             ) : null}
           </div>
