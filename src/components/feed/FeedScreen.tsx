@@ -128,24 +128,7 @@ export function FeedScreen() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="shrink-0 px-4 pt-5">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-brand-text-muted">FitMatch</p>
-            <h1 className="font-display mt-2 text-[2.05rem] font-semibold leading-none text-brand-text">
-              Лента
-            </h1>
-          </div>
-          <div className="rounded-[1.2rem] border border-white/10 bg-white/5 px-3 py-2 text-right">
-            <div className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-brand-text-muted">
-              Сейчас
-            </div>
-            <div className="mt-1 text-lg font-semibold text-brand-text">{profiles.length}</div>
-          </div>
-        </div>
-      </div>
-
-      <div className="relative mx-4 mb-4 mt-4 min-h-0 flex-1">
+      <div className="relative min-h-0 flex-1">
         {profiles.slice(1, 3).map((profile, index) => (
           <div
             key={profile.user_id}
