@@ -6,7 +6,6 @@ import { motion } from 'framer-motion'
 import Image from 'next/image'
 import { X } from 'lucide-react'
 import { ActionButtons } from './ActionButtons'
-import { PhotoCarousel } from './PhotoCarousel'
 import type { Profile } from '@/types'
 
 interface Props {
@@ -24,10 +23,7 @@ export function SwipeCard({ profile, onLike, onSkip, disabled }: Props) {
   const aboutPreview = canExpandAbout
     ? `${profile.about.slice(0, 118).trim().replace(/[.,!?;:\s]+$/, '')}...`
     : profile.about
-  const infoItems = [
-    profile.club && `Клуб: ${profile.club}`,
-    profile.city && `Город: ${profile.city}`,
-  ].filter(Boolean) as string[]
+  const profileSummary = profile.about || 'Описание не добавлено'
 
   return (
     <motion.div
@@ -37,54 +33,55 @@ export function SwipeCard({ profile, onLike, onSkip, disabled }: Props) {
       exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.15 } }}
     >
       <div className="flex h-full w-full flex-col gap-2 overflow-y-auto p-2">
-        <div
-          className="grid shrink-0 grid-rows-[minmax(0,3fr)_auto] overflow-hidden rounded-[1.75rem] border border-white/10 bg-black/22 shadow-panel"
-          style={{ minHeight: 'calc(100% - 7rem)' }}
-        >
-          <div className="relative z-0 min-h-0">
-            <PhotoCarousel photos={profile.photos} name={profile.name} current={0} onOpen={() => setPhotoOpen(true)} />
-          </div>
-
-          <div className="relative z-10 border-t border-white/10 bg-black/42 px-3 py-3 backdrop-blur-[14px]">
-            <h2 className="truncate font-display text-[1.45rem] font-semibold leading-none text-white">
-              {profile.name}
-              {profile.age > 0 ? (
-                <span className="ml-2 font-sans text-base font-medium text-white/72">{profile.age}</span>
-              ) : null}
-            </h2>
-
-            {infoItems.length > 0 ? (
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {infoItems.map((item) => (
-                  <span key={item} className="rounded-full bg-white/10 px-2.5 py-0.5 text-[0.72rem] font-medium text-white/86">
-                    {item}
+        <article className="shrink-0 overflow-hidden rounded-[2rem] border border-white/10 bg-brand-bg-2 shadow-float">
+          <button
+            type="button"
+            onClick={() => setPhotoOpen(true)}
+            className="relative block aspect-[4/5] max-h-[27rem] min-h-[18rem] w-full cursor-zoom-in overflow-hidden bg-brand-bg-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
+            aria-label={`Открыть фото ${profile.name} на весь экран`}
+          >
+            <Image
+              src={photo}
+              alt={profile.name}
+              fill
+              className="object-cover object-top"
+              sizes="(max-width: 448px) 100vw, 448px"
+              priority
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-brand-bg via-brand-bg/18 to-transparent" />
+            <div className="absolute inset-x-0 bottom-0 p-5">
+              {profile.club ? (
+                <div className="mb-3 flex flex-wrap gap-2">
+                  <span className="rounded-full border border-white/12 bg-black/18 px-3 py-1 text-[0.72rem] uppercase tracking-[0.18em] text-white/78">
+                    {profile.club}
                   </span>
-                ))}
-              </div>
-            ) : null}
-
-            {profile.about ? (
-              <div className="mt-2">
-                <div className="mb-0.5 text-[0.62rem] font-semibold uppercase tracking-[0.16em] text-white/58">
-                  О себе
                 </div>
-                <button
-                  type="button"
-                  onClick={() => canExpandAbout && setAboutExpanded((value) => !value)}
-                  className="block w-full text-left text-xs leading-5 text-white/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
-                  aria-expanded={aboutExpanded}
-                >
-                  <span className={aboutExpanded ? 'block' : 'line-clamp-2 block'}>
-                    {aboutExpanded ? profile.about : aboutPreview}
-                    {canExpandAbout && !aboutExpanded ? (
-                      <em className="ml-1 text-white/70">еще</em>
-                    ) : null}
-                  </span>
-                </button>
-              </div>
-            ) : null}
+              ) : null}
+              <h2 className="font-display text-[2.2rem] leading-none text-white">
+                {profile.name}
+                {profile.age > 0 ? <span>, {profile.age}</span> : null}
+              </h2>
+              {profile.city ? <p className="mt-3 text-sm text-white/76">{profile.city}</p> : null}
+            </div>
+          </button>
+
+          <div className="space-y-5 p-5">
+            <section>
+              <p className="text-[0.7rem] uppercase tracking-[0.22em] text-brand-text-muted">О себе</p>
+              <button
+                type="button"
+                onClick={() => canExpandAbout && setAboutExpanded((value) => !value)}
+                className="mt-3 block w-full text-left text-sm leading-7 text-brand-text focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
+                aria-expanded={aboutExpanded}
+              >
+                <span className={aboutExpanded ? 'block' : 'line-clamp-2 block'}>
+                  {aboutExpanded ? profileSummary : aboutPreview || profileSummary}
+                  {canExpandAbout && !aboutExpanded ? <em className="ml-1 text-brand-text-muted">еще</em> : null}
+                </span>
+              </button>
+            </section>
           </div>
-        </div>
+        </article>
 
         <ActionButtons
           onLike={onLike}
