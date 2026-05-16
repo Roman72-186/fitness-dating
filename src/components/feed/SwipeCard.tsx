@@ -36,26 +36,24 @@ export function SwipeCard({ profile, onLike, onSkip, disabled }: Props) {
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.15 } }}
     >
-      <div className="grid h-full w-full grid-rows-[minmax(15rem,1fr)_auto_auto] overflow-y-auto p-2">
+      <div className="grid h-full w-full grid-rows-[3fr_1fr_auto] gap-2 overflow-hidden p-2">
         <div className="relative z-0 min-h-0">
           <PhotoCarousel photos={profile.photos} name={profile.name} current={0} onOpen={() => setPhotoOpen(true)} />
         </div>
 
-        <div className="relative z-10 px-2 py-3">
-          <div className="rounded-[1.55rem] border border-white/10 bg-black/42 px-4 py-4 shadow-panel backdrop-blur-[14px]">
-            <div className="min-w-0">
-              <h2 className="font-display text-[1.78rem] font-semibold leading-none text-white">
-                {profile.name}
-                {profile.age > 0 ? (
-                  <span className="ml-2 font-sans text-lg font-medium text-white/72">{profile.age}</span>
-                ) : null}
-              </h2>
-            </div>
+        <div className="relative z-10 min-h-0 px-2">
+          <div className="min-h-0 overflow-y-auto rounded-[1.35rem] border border-white/10 bg-black/42 px-3 py-3 shadow-panel backdrop-blur-[14px]">
+            <h2 className="truncate font-display text-[1.45rem] font-semibold leading-none text-white">
+              {profile.name}
+              {profile.age > 0 ? (
+                <span className="ml-2 font-sans text-base font-medium text-white/72">{profile.age}</span>
+              ) : null}
+            </h2>
 
             {infoItems.length > 0 ? (
-              <div className="mt-3 flex flex-wrap gap-2">
+              <div className="mt-2 flex flex-wrap gap-1.5">
                 {infoItems.map((item) => (
-                  <span key={item} className="rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/86">
+                  <span key={item} className="rounded-full bg-white/10 px-2.5 py-0.5 text-[0.72rem] font-medium text-white/86">
                     {item}
                   </span>
                 ))}
@@ -63,14 +61,17 @@ export function SwipeCard({ profile, onLike, onSkip, disabled }: Props) {
             ) : null}
 
             {profile.about ? (
-              <div className="mt-3">
+              <div className="mt-2">
+                <div className="mb-0.5 text-[0.62rem] font-semibold uppercase tracking-[0.16em] text-white/58">
+                  О себе
+                </div>
                 <button
                   type="button"
                   onClick={() => canExpandAbout && setAboutExpanded((value) => !value)}
-                  className="block w-full text-left text-sm leading-6 text-white/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
+                  className="block w-full text-left text-xs leading-5 text-white/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
                   aria-expanded={aboutExpanded}
                 >
-                  <span className={aboutExpanded ? 'block' : 'line-clamp-3 block'}>
+                  <span className={aboutExpanded ? 'block' : 'line-clamp-2 block'}>
                     {aboutExpanded ? profile.about : aboutPreview}
                     {canExpandAbout && !aboutExpanded ? (
                       <em className="ml-1 text-white/70">еще</em>
@@ -86,7 +87,8 @@ export function SwipeCard({ profile, onLike, onSkip, disabled }: Props) {
           onLike={onLike}
           onSkip={onSkip}
           disabled={disabled}
-          className="relative z-20 px-2 pb-2 pt-0"
+          compact
+          className="relative z-20 px-2 pb-2"
         />
       </div>
 
