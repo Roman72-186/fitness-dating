@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { FormEvent, useCallback, useEffect, useState } from 'react'
 import { ArrowLeft, RefreshCw } from 'lucide-react'
 
 type GroupRow = {
@@ -59,6 +59,10 @@ export function AdminStats({ token, onBack }: Props) {
   const [stats, setStats] = useState<AdminStatsPayload | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [telegramId, setTelegramId] = useState('')
+  const [resetLoading, setResetLoading] = useState(false)
+  const [resetError, setResetError] = useState<string | null>(null)
+  const [resetSuccess, setResetSuccess] = useState<string | null>(null)
 
   const fetchStats = useCallback(async () => {
     setLoading(true)
@@ -86,6 +90,43 @@ export function AdminStats({ token, onBack }: Props) {
   useEffect(() => {
     fetchStats()
   }, [fetchStats])
+
+  async function handleResetViews(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault()
+    setResetLoading(true)
+    setResetError(null)
+    setResetSuccess(null)
+
+    try {
+      const res = await fetch('/api/admin/reset-views', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ telegramId }),
+      })
+      const data: unknown = await res.json()
+
+      if (!res.ok || typeof data !== 'object' || data === null || !('message' in data)) {
+        setResetError('Не удалось сбросить просмотры')
+        return
+      }
+
+      const message = (data as { message?: unknown }).message
+      if (typeof message !== 'string' || message.length === 0) {
+        setResetError('Не удалось сбросить просмотры')
+        return
+      }
+
+      setResetSuccess(message)
+      await fetchStats()
+    } catch {
+      setResetError('Не удалось сбросить просмотры')
+    } finally {
+      setResetLoading(false)
+    }
+  }
 
   return (
     <div className="h-full min-h-0 overflow-y-auto px-4 pb-24 pt-6">
@@ -118,6 +159,37 @@ export function AdminStats({ token, onBack }: Props) {
 
       {stats ? (
         <div className="space-y-5">
+          <section className="rounded-[1.7rem] border border-white/10 bg-brand-bg-2 p-4 shadow-panel">
+            <h2 className="font-display text-xl text-brand-text">Сброс просмотров</h2>
+            <p className="mt-2 text-sm text-brand-text-muted">
+              Введи Telegram ID пользователя, чтобы очистить его историю просмотренных анкет.
+            </p>
+
+            <form className="mt-4 space-y-3" onSubmit={handleResetViews}>
+              <label className="block">
+                <span className="text-sm text-brand-text-muted">Telegram ID</span>
+                <input
+                  value={telegramId}
+                  onChange={(event) => setTelegramId(event.target.value.replace(/[^\d]/g, ''))}
+                  className="mt-2 min-h-12 w-full rounded-2xl border border-white/12 bg-brand-bg px-4 text-brand-text outline-none focus:border-brand-accent"
+                  inputMode="numeric"
+                  placeholder="Например, 123456789"
+                />
+              </label>
+
+              {resetError ? <p className="text-sm text-brand-skip">{resetError}</p> : null}
+              {resetSuccess ? <p className="text-sm text-brand-accent">{resetSuccess}</p> : null}
+
+              <button
+                type="submit"
+                disabled={resetLoading || telegramId.length === 0}
+                className="min-h-12 w-full rounded-2xl bg-brand-accent px-4 py-3 text-sm font-semibold text-brand-bg transition active:scale-[0.98] disabled:opacity-50"
+              >
+                {resetLoading ? 'Сбрасываем' : 'Сбросить просмотры'}
+              </button>
+            </form>
+          </section>
+
           <section className="grid grid-cols-2 gap-3">
             <StatCard label="1 день" value={stats.periods.day1} />
             <StatCard label="7 дней" value={stats.periods.day7} />
