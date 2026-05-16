@@ -15,10 +15,7 @@ function isOtherClub(club?: string | null): boolean {
 }
 
 function isCompatible(candidate: Profile, me: Profile): boolean {
-  const myAcceptsCandidate = me.interested_in === 'all' || candidate.gender === me.interested_in
-  const candidateAcceptsMe = candidate.interested_in === 'all' || candidate.interested_in === me.gender
-
-  return myAcceptsCandidate && candidateAcceptsMe
+  return me.interested_in === 'all' || candidate.gender === me.interested_in
 }
 
 // 4-тировая приоритизация:
@@ -26,7 +23,8 @@ function isCompatible(candidate: Profile, me: Profile): boolean {
 //   tier2 — тот же клуб
 //   tier3 — тот же город
 //   tier4 — остальные
-// Фильтр совместимости по полу (isCompatible) применяется одинаково ко всем тирам.
+// Фильтр по полу смотрит на выбор зрителя и gender кандидата.
+// candidate.interested_in влияет только на выдачу самого кандидата, когда ленту строят для него.
 // Если me.club = "Другой клуб" — tier1 и tier2 пропускаются.
 // Если candidate.club = "Другой клуб" — не считается совпадением клуба.
 // me=null — гостевой режим: все активные незаблокированные без фильтрации.

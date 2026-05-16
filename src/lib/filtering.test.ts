@@ -15,7 +15,7 @@ const me: Profile = {
   active: true,
 }
 
-// Кандидат по умолчанию совместим с me (female, ищет male)
+// Кандидат по умолчанию подходит me по gender (female).
 function p(overrides: Partial<Profile> & { user_id: string }): Profile {
   return {
     ...me,
@@ -52,10 +52,9 @@ describe('buildFeed', () => {
     expect(result).toHaveLength(0)
   })
 
-  it('не показывает кандидата, которому не подходит мой пол', () => {
-    // Девушка, но ищет тоже девушек — Иван (male) ей не подходит
+  it('показывает кандидата подходящего gender, даже если candidate.interested_in не мой пол', () => {
     const result = buildFeed([p({ user_id: 'f', gender: 'female', interested_in: 'female' })], me, new Set())
-    expect(result).toHaveLength(0)
+    expect(result).toHaveLength(1)
   })
 
   it('показывает кандидата с interested_in=all, если его пол подходит мне', () => {
@@ -63,7 +62,7 @@ describe('buildFeed', () => {
     expect(result).toHaveLength(1)
   })
 
-  it('interested_in=all у me — показывает всех (не смотрит их предпочтения)', () => {
+  it('interested_in=all у me — показывает мужчин и женщин независимо от candidate.interested_in', () => {
     const meAll = { ...me, interested_in: 'all' as const }
     const result = buildFeed(
       [
@@ -74,7 +73,92 @@ describe('buildFeed', () => {
       meAll,
       new Set(),
     )
+    expect(result).toHaveLength(3)
+  })
+
+  it('interested_in=all у me показывает всех по gender, не проверяя, кому подходит мой пол', () => {
+    const meAll = { ...me, interested_in: 'all' as const }
+    const result = buildFeed(
+      [
+        p({ user_id: 'female-seeks-female', gender: 'female', interested_in: 'female' }),
+        p({ user_id: 'male-seeks-female', gender: 'male', interested_in: 'female' }),
+      ],
+      meAll,
+      new Set(),
+    )
+
     expect(result).toHaveLength(2)
+  })
+
+  it('interested_in=all у me — сортирует совместимых мужчин и женщин по клубу и городу', () => {
+    const meAll = { ...me, interested_in: 'all' as const }
+    const sameClubAndCityMale = p({
+      user_id: 'same-club-city-male',
+      gender: 'male',
+      interested_in: 'male',
+      club: 'FitLife',
+      city: 'Москва',
+    })
+    const sameClubAndCityFemale = p({
+      user_id: 'same-club-city-female',
+      gender: 'female',
+      interested_in: 'male',
+      club: 'FitLife',
+      city: 'Москва',
+    })
+    const sameClub = p({
+      user_id: 'same-club',
+      gender: 'female',
+      interested_in: 'male',
+      club: 'FitLife',
+      city: 'Казань',
+    })
+    const sameCity = p({
+      user_id: 'same-city',
+      gender: 'male',
+      interested_in: 'male',
+      club: 'Other',
+      city: 'Москва',
+    })
+    const other = p({
+      user_id: 'other',
+      gender: 'female',
+      interested_in: 'male',
+      club: 'Other',
+      city: 'Питер',
+    })
+
+    const result = buildFeed([other, sameCity, sameClub, sameClubAndCityFemale, sameClubAndCityMale], meAll, new Set())
+    const resultIds = result.map((x) => x.user_id)
+    const tier1Ids = resultIds.slice(0, 2)
+
+    expect(tier1Ids).toEqual(expect.arrayContaining(['same-club-city-male', 'same-club-city-female']))
+    expect(resultIds.indexOf('same-club')).toBeGreaterThan(1)
+    expect(resultIds.indexOf('same-club')).toBeLessThan(resultIds.indexOf('same-city'))
+    expect(resultIds.indexOf('same-city')).toBeLessThan(resultIds.indexOf('other'))
+  })
+
+  it('candidate.interested_in=all показывается, если gender кандидата подходит фильтру зрителя', () => {
+    const maleViewer = { ...me, user_id: 'male-viewer', gender: 'male' as const, interested_in: 'female' as const }
+    const femaleViewer = { ...me, user_id: 'female-viewer', gender: 'female' as const, interested_in: 'female' as const }
+    const candidate = p({ user_id: 'candidate-all', gender: 'female', interested_in: 'all' })
+
+    expect(buildFeed([candidate], maleViewer, new Set())).toHaveLength(1)
+    expect(buildFeed([candidate], femaleViewer, new Set())).toHaveLength(1)
+  })
+
+  it('candidate.interested_in не влияет на показ, если gender кандидата подходит фильтру зрителя', () => {
+    const candidate = p({ user_id: 'female-seeks-female', gender: 'female', interested_in: 'female' })
+    const result = buildFeed([candidate], me, new Set())
+
+    expect(result).toHaveLength(1)
+  })
+
+  it('candidate.interested_in=all не обходит мой фильтр по полу', () => {
+    const candidate = p({ user_id: 'male-all', gender: 'male', interested_in: 'all' })
+    const result = buildFeed([candidate], me, new Set())
+
+    expect(result).toHaveLength(0)
   })
 
   it('tier1 (клуб + город) стоит перед tier2 (клуб, другой город)', () => {
