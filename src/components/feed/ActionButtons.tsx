@@ -6,11 +6,12 @@ interface Props {
   onLike: () => void
   onSkip: () => void
   disabled?: boolean
+  className?: string
 }
 
-export function ActionButtons({ onLike, onSkip, disabled }: Props) {
+export function ActionButtons({ onLike, onSkip, disabled, className = 'shrink-0 px-4 pb-4 pt-3' }: Props) {
   return (
-    <div className="shrink-0 px-4 pb-4 pt-3">
+    <div className={className}>
       <div className="grid grid-cols-2 gap-3 rounded-[1.7rem] border border-white/10 bg-brand-bg-2/80 p-3 shadow-panel backdrop-blur-sm">
         <button
           type="button"

@@ -5,7 +5,6 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { AppState } from '@/components/ui/AppState'
 import { RefreshCcw, Sparkles } from 'lucide-react'
 import { SwipeCard } from './SwipeCard'
-import { ActionButtons } from './ActionButtons'
 import { useFeed } from '@/hooks/useFeed'
 import { useSwipe } from '@/hooks/useSwipe'
 import type { Profile } from '@/types'
@@ -146,7 +145,7 @@ export function FeedScreen() {
         </div>
       </div>
 
-      <div className="relative mx-4 mt-4 min-h-0 flex-1">
+      <div className="relative mx-4 mb-4 mt-4 min-h-0 flex-1">
         {profiles.slice(1, 3).map((profile, index) => (
           <div
             key={profile.user_id}
@@ -177,13 +176,11 @@ export function FeedScreen() {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.8, transition: { duration: 0.2 } }}
             >
-              <SwipeCard profile={top} onLike={handleLike} onSkip={handleSkip} />
+              <SwipeCard profile={top} onLike={handleLike} onSkip={handleSkip} disabled={busy || !top} />
             </motion.div>
           ) : null}
         </AnimatePresence>
       </div>
-
-      <ActionButtons onLike={handleLike} onSkip={handleSkip} disabled={busy || !top} />
 
       <AnimatePresence>
         {showMatch ? (

@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import { motion } from 'framer-motion'
 import Image from 'next/image'
 import { X } from 'lucide-react'
+import { ActionButtons } from './ActionButtons'
 import { PhotoCarousel } from './PhotoCarousel'
 import type { Profile } from '@/types'
 
@@ -12,9 +13,10 @@ interface Props {
   profile: Profile
   onLike: () => void
   onSkip: () => void
+  disabled?: boolean
 }
 
-export function SwipeCard({ profile }: Props) {
+export function SwipeCard({ profile, onLike, onSkip, disabled }: Props) {
   const [photoOpen, setPhotoOpen] = useState(false)
   const [aboutExpanded, setAboutExpanded] = useState(false)
   const photo = profile.photos[0] ?? 'https://i.pravatar.cc/400'
@@ -31,12 +33,12 @@ export function SwipeCard({ profile }: Props) {
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.15 } }}
     >
-      <div className="flex h-full w-full flex-col overflow-y-auto p-2">
-        <div className="h-[58%] min-h-[17rem] shrink-0">
+      <div className="grid h-full w-full grid-rows-[minmax(15rem,1fr)_auto_auto] overflow-y-auto p-2">
+        <div className="relative z-0 min-h-0">
           <PhotoCarousel photos={profile.photos} name={profile.name} current={0} onOpen={() => setPhotoOpen(true)} />
         </div>
 
-        <div className="relative z-10 -mt-8 px-2 pb-3">
+        <div className="relative z-10 -mt-9 px-2 pb-3">
           <div className="rounded-[1.55rem] border border-white/10 bg-black/42 px-4 py-4 shadow-panel backdrop-blur-[14px]">
             <div className="min-w-0">
               <h2 className="font-display text-[1.78rem] font-semibold leading-none text-white">
@@ -83,6 +85,13 @@ export function SwipeCard({ profile }: Props) {
             ) : null}
           </div>
         </div>
+
+        <ActionButtons
+          onLike={onLike}
+          onSkip={onSkip}
+          disabled={disabled}
+          className="relative z-20 px-2 pb-2 pt-0"
+        />
       </div>
 
       {photoOpen ? createPortal(
