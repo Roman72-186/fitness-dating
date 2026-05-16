@@ -36,13 +36,16 @@ export function SwipeCard({ profile, onLike, onSkip, disabled }: Props) {
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.15 } }}
     >
-      <div className="grid h-full w-full grid-rows-[3fr_1fr_auto] gap-2 overflow-hidden p-2">
-        <div className="relative z-0 min-h-0">
-          <PhotoCarousel photos={profile.photos} name={profile.name} current={0} onOpen={() => setPhotoOpen(true)} />
-        </div>
+      <div className="flex h-full w-full flex-col gap-2 overflow-y-auto p-2">
+        <div
+          className="grid shrink-0 grid-rows-[minmax(0,3fr)_auto] overflow-hidden rounded-[1.75rem] border border-white/10 bg-black/22 shadow-panel"
+          style={{ minHeight: 'calc(100% - 7rem)' }}
+        >
+          <div className="relative z-0 min-h-0">
+            <PhotoCarousel photos={profile.photos} name={profile.name} current={0} onOpen={() => setPhotoOpen(true)} />
+          </div>
 
-        <div className="relative z-10 min-h-0 px-2">
-          <div className="min-h-0 overflow-y-auto rounded-[1.35rem] border border-white/10 bg-black/42 px-3 py-3 shadow-panel backdrop-blur-[14px]">
+          <div className="relative z-10 border-t border-white/10 bg-black/42 px-3 py-3 backdrop-blur-[14px]">
             <h2 className="truncate font-display text-[1.45rem] font-semibold leading-none text-white">
               {profile.name}
               {profile.age > 0 ? (
@@ -87,8 +90,7 @@ export function SwipeCard({ profile, onLike, onSkip, disabled }: Props) {
           onLike={onLike}
           onSkip={onSkip}
           disabled={disabled}
-          compact
-          className="relative z-20 px-2 pb-2"
+          className="relative z-20 shrink-0 px-2 pb-2"
         />
       </div>
 
