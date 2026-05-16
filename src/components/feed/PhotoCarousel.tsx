@@ -17,7 +17,7 @@ export function PhotoCarousel({ photos, name, current, onOpen }: Props) {
     <button
       type="button"
       onClick={onOpen}
-      className="relative h-full w-full overflow-hidden rounded-[1.75rem] text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
+      className="relative h-full w-full cursor-zoom-in overflow-hidden rounded-[1.75rem] text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
       aria-label={`Открыть фото ${name} на весь экран`}
     >
       <Image

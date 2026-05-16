@@ -92,7 +92,7 @@ export function SwipeCard({ profile, onLike, onSkip, disabled }: Props) {
 
       {photoOpen ? createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/94 p-3"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black"
           role="dialog"
           aria-modal="true"
           aria-label={`Фото ${profile.name}`}
@@ -107,7 +107,7 @@ export function SwipeCard({ profile, onLike, onSkip, disabled }: Props) {
             <X className="h-6 w-6" aria-hidden="true" />
           </button>
 
-          <div className="relative h-full max-h-[92vh] w-full max-w-xl" onClick={(event) => event.stopPropagation()}>
+          <div className="relative h-[100svh] w-screen" onClick={(event) => event.stopPropagation()}>
             <Image
               src={photo}
               alt={profile.name}
