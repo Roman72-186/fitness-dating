@@ -89,16 +89,16 @@ export function SwipeCard({ profile, onLike, onSkip, disabled }: Props) {
             </button>
           </div>
 
-          <div className="min-h-0 overflow-hidden p-4">
-            <section className="relative">
+          <div className="flex min-h-0 items-end overflow-hidden p-4">
+            <section className="relative w-full">
               <p className="text-[0.7rem] uppercase tracking-[0.22em] text-brand-text-muted">О себе</p>
               <button
                 type="button"
                 onClick={() => canExpandAbout && setAboutExpanded(true)}
-                className="mt-2 block w-full text-left text-sm leading-6 text-brand-text focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
+                className="mt-2 block h-12 w-full overflow-hidden text-left text-sm leading-6 text-brand-text focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
                 aria-expanded={aboutExpanded}
               >
-                <span className="relative line-clamp-2 block">
+                <span className="relative block h-12 overflow-hidden">
                   {profileSummary}
                   {canExpandAbout ? (
                     <em className="absolute bottom-0 right-0 bg-brand-bg-2 pl-2 text-brand-text-muted">... еще</em>
@@ -107,7 +107,7 @@ export function SwipeCard({ profile, onLike, onSkip, disabled }: Props) {
               </button>
               <p
                 ref={aboutMeasureRef}
-                className="pointer-events-none invisible absolute -z-10 mt-2 line-clamp-2 w-[calc(100%-2rem)] text-sm leading-6"
+                className="pointer-events-none invisible absolute -z-10 mt-2 h-12 w-[calc(100%-2rem)] overflow-hidden text-sm leading-6"
                 aria-hidden="true"
               >
                 {profileSummary}
