@@ -7,6 +7,7 @@ import { RefreshCcw, Sparkles } from 'lucide-react'
 import { SwipeCard } from './SwipeCard'
 import { useFeed } from '@/hooks/useFeed'
 import { useSwipe } from '@/hooks/useSwipe'
+import { returnToBot } from '@/lib/telegram-webapp'
 import type { Profile } from '@/types'
 
 function MatchModal({
@@ -163,6 +164,16 @@ export function FeedScreen() {
             </motion.div>
           ) : null}
         </AnimatePresence>
+      </div>
+
+      <div className="shrink-0 px-3 pb-3 pt-2">
+        <button
+          type="button"
+          onClick={returnToBot}
+          className="flex min-h-12 w-full items-center justify-center rounded-[1.35rem] border border-white/18 bg-brand-bg-2/78 px-4 py-3 text-sm font-semibold text-brand-text shadow-panel backdrop-blur-md transition active:scale-[0.99]"
+        >
+          Вернуться в бот
+        </button>
       </div>
 
       <AnimatePresence>

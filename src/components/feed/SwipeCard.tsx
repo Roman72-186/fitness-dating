@@ -32,12 +32,12 @@ export function SwipeCard({ profile, onLike, onSkip, disabled }: Props) {
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.15 } }}
     >
-      <div className="flex h-full w-full flex-col gap-2 overflow-y-auto p-2">
-        <article className="shrink-0 overflow-hidden rounded-[2rem] border border-white/10 bg-brand-bg-2 shadow-float">
+      <div className="grid h-full w-full grid-rows-[minmax(0,1fr)_auto] gap-2 overflow-hidden p-2">
+        <article className="grid min-h-0 grid-rows-[minmax(0,3fr)_minmax(6.5rem,1fr)] overflow-hidden rounded-[2rem] border border-white/10 bg-brand-bg-2 shadow-float">
           <button
             type="button"
             onClick={() => setPhotoOpen(true)}
-            className="relative block aspect-[4/5] max-h-[27rem] min-h-[18rem] w-full cursor-zoom-in overflow-hidden bg-brand-bg-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
+            className="relative block min-h-0 w-full cursor-zoom-in overflow-hidden bg-brand-bg-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
             aria-label={`Открыть фото ${profile.name} на весь экран`}
           >
             <Image
@@ -49,32 +49,32 @@ export function SwipeCard({ profile, onLike, onSkip, disabled }: Props) {
               priority
             />
             <div className="absolute inset-0 bg-gradient-to-t from-brand-bg via-brand-bg/18 to-transparent" />
-            <div className="absolute inset-x-0 bottom-0 p-5">
+            <div className="absolute inset-x-0 bottom-0 p-4">
               {profile.club ? (
-                <div className="mb-3 flex flex-wrap gap-2">
+                <div className="mb-2 flex flex-wrap gap-2">
                   <span className="rounded-full border border-white/12 bg-black/18 px-3 py-1 text-[0.72rem] uppercase tracking-[0.18em] text-white/78">
                     {profile.club}
                   </span>
                 </div>
               ) : null}
-              <h2 className="font-display text-[2.2rem] leading-none text-white">
+              <h2 className="font-display text-[2rem] leading-none text-white">
                 {profile.name}
                 {profile.age > 0 ? <span>, {profile.age}</span> : null}
               </h2>
-              {profile.city ? <p className="mt-3 text-sm text-white/76">{profile.city}</p> : null}
+              {profile.city ? <p className="mt-2 text-sm text-white/76">{profile.city}</p> : null}
             </div>
           </button>
 
-          <div className="space-y-5 p-5">
+          <div className="min-h-0 overflow-hidden p-4">
             <section>
               <p className="text-[0.7rem] uppercase tracking-[0.22em] text-brand-text-muted">О себе</p>
               <button
                 type="button"
                 onClick={() => canExpandAbout && setAboutExpanded((value) => !value)}
-                className="mt-3 block w-full text-left text-sm leading-7 text-brand-text focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
+                className="mt-2 block w-full text-left text-sm leading-6 text-brand-text focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
                 aria-expanded={aboutExpanded}
               >
-                <span className={aboutExpanded ? 'block' : 'line-clamp-2 block'}>
+                <span className={aboutExpanded ? 'line-clamp-4 block' : 'line-clamp-2 block'}>
                   {aboutExpanded ? profileSummary : aboutPreview || profileSummary}
                   {canExpandAbout && !aboutExpanded ? <em className="ml-1 text-brand-text-muted">еще</em> : null}
                 </span>
@@ -87,7 +87,7 @@ export function SwipeCard({ profile, onLike, onSkip, disabled }: Props) {
           onLike={onLike}
           onSkip={onSkip}
           disabled={disabled}
-          className="relative z-20 shrink-0 px-2 pb-2"
+          className="relative z-20 px-1 pb-1"
         />
       </div>
 

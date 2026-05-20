@@ -1,16 +1,16 @@
 import type { Metadata } from 'next'
-import localFont from 'next/font/local'
+import { Nunito } from 'next/font/google'
 import Script from 'next/script'
 import './globals.css'
 
-const bodyFont = localFont({
-  src: './fonts/GeistVF.woff',
+const bodyFont = Nunito({
+  subsets: ['latin', 'cyrillic'],
   variable: '--font-body',
   display: 'swap',
 })
 
-const displayFont = localFont({
-  src: './fonts/GeistMonoVF.woff',
+const displayFont = Nunito({
+  subsets: ['latin', 'cyrillic'],
   variable: '--font-display',
   display: 'swap',
 })

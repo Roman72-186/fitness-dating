@@ -5,21 +5,10 @@ import { useToken } from '@/hooks/useToken'
 import { useProfileCheck } from '@/hooks/useProfileCheck'
 import { useAuthStore } from '@/store/auth-store'
 import { AppState } from '@/components/ui/AppState'
+import { returnToBot } from '@/lib/telegram-webapp'
 
 interface Props {
   children: React.ReactNode
-}
-
-const REGISTRATION_BOT_URL =
-  process.env.NEXT_PUBLIC_REGISTRATION_BOT_URL || 'https://t.me/BrightMatch_Bot'
-
-function openRegistrationBot() {
-  const tg = typeof window !== 'undefined' ? window.Telegram?.WebApp : null
-  if (tg?.openTelegramLink) {
-    tg.openTelegramLink(REGISTRATION_BOT_URL)
-  } else if (typeof window !== 'undefined') {
-    window.open(REGISTRATION_BOT_URL, '_blank')
-  }
 }
 
 export function AppShell({ children }: Props) {
@@ -44,7 +33,7 @@ export function AppShell({ children }: Props) {
         label="Анкета"
         title="Профиль пустой"
         actionLabel="Открыть бота"
-        onAction={openRegistrationBot}
+        onAction={returnToBot}
       />
     )
   }
