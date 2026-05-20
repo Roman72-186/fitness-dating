@@ -85,23 +85,13 @@ export function ProfileCard() {
   const profileSummary = profile.about || 'Описание не добавлено'
 
   return (
-    <div className="h-full min-h-0 overflow-y-auto px-4 pb-24 pt-6">
-      <header className="mb-5 flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <button
-            type="button"
-            onClick={handleAdminTap}
-            className="block text-left font-display text-[2rem] leading-none text-brand-text"
-            aria-label="Профиль"
-          >
-            Профиль
-          </button>
-        </div>
-        <div className="shrink-0 rounded-[1.4rem] border border-white/10 bg-brand-bg-2 px-4 py-3 text-right shadow-panel">
-          <p className="text-[0.7rem] uppercase tracking-[0.22em] text-brand-text-muted">Статус</p>
-          <p className="font-display text-2xl text-brand-text">АКТИВЕН</p>
-        </div>
-      </header>
+    <div className="relative h-full min-h-0 overflow-y-auto px-4 pb-24 pt-6">
+      <button
+        type="button"
+        onClick={handleAdminTap}
+        className="absolute left-4 top-2 z-20 h-12 w-16 rounded-2xl bg-transparent"
+        aria-label="Открыть админку"
+      />
 
       <article className="overflow-hidden rounded-[2rem] border border-white/10 bg-brand-bg-2 shadow-float">
         <div className="relative aspect-[4/5] w-full bg-brand-bg-3">

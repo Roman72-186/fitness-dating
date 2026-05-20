@@ -1,16 +1,30 @@
 import type { Metadata } from 'next'
-import { Nunito } from 'next/font/google'
+import localFont from 'next/font/local'
 import Script from 'next/script'
 import './globals.css'
 
-const bodyFont = Nunito({
-  subsets: ['latin', 'cyrillic'],
+const bodyFont = localFont({
+  src: [
+    { path: './fonts/Nunito-Regular.ttf', weight: '400', style: 'normal' },
+    { path: './fonts/Nunito-Medium.ttf', weight: '500', style: 'normal' },
+    { path: './fonts/Nunito-SemiBold.ttf', weight: '600', style: 'normal' },
+    { path: './fonts/Nunito-Bold.ttf', weight: '700', style: 'normal' },
+    { path: './fonts/Nunito-ExtraBold.ttf', weight: '800', style: 'normal' },
+    { path: './fonts/Nunito-Black.ttf', weight: '900', style: 'normal' },
+  ],
   variable: '--font-body',
   display: 'swap',
 })
 
-const displayFont = Nunito({
-  subsets: ['latin', 'cyrillic'],
+const displayFont = localFont({
+  src: [
+    { path: './fonts/Nunito-Regular.ttf', weight: '400', style: 'normal' },
+    { path: './fonts/Nunito-Medium.ttf', weight: '500', style: 'normal' },
+    { path: './fonts/Nunito-SemiBold.ttf', weight: '600', style: 'normal' },
+    { path: './fonts/Nunito-Bold.ttf', weight: '700', style: 'normal' },
+    { path: './fonts/Nunito-ExtraBold.ttf', weight: '800', style: 'normal' },
+    { path: './fonts/Nunito-Black.ttf', weight: '900', style: 'normal' },
+  ],
   variable: '--font-display',
   display: 'swap',
 })
