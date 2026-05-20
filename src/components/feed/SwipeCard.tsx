@@ -87,18 +87,6 @@ export function SwipeCard({ profile, onLike, onSkip, disabled }: Props) {
                 {profile.city ? <p className="mt-2 text-sm text-white/76">{profile.city}</p> : null}
               </div>
             </button>
-
-            {aboutExpanded ? (
-              <button
-                type="button"
-                onClick={() => setAboutExpanded(false)}
-                className="absolute inset-3 z-20 rounded-[1.5rem] border border-white/12 bg-brand-bg/72 p-4 text-left text-brand-text shadow-float backdrop-blur-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
-                aria-label="Свернуть описание"
-              >
-                <span className="block text-[0.7rem] uppercase tracking-[0.22em] text-brand-text-muted">О себе</span>
-                <span className="mt-3 block max-h-full overflow-y-auto pr-1 text-sm leading-6">{profileSummary}</span>
-              </button>
-            ) : null}
           </div>
 
           <div className="min-h-0 overflow-hidden p-4">
@@ -163,6 +151,38 @@ export function SwipeCard({ profile, onLike, onSkip, disabled }: Props) {
               priority
             />
           </div>
+        </div>,
+        document.body,
+      ) : null}
+
+      {aboutExpanded ? createPortal(
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black px-5 py-7"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Описание ${profile.name}`}
+          onClick={() => setAboutExpanded(false)}
+        >
+          <button
+            type="button"
+            onClick={() => setAboutExpanded(false)}
+            className="absolute right-4 top-4 z-10 rounded-full border border-white/12 bg-black/50 p-3 text-white backdrop-blur-md"
+            aria-label="Закрыть описание"
+          >
+            <X className="h-6 w-6" aria-hidden="true" />
+          </button>
+
+          <section
+            className="max-h-[84svh] w-full max-w-[28rem] overflow-y-auto rounded-[2rem] border border-white/12 bg-brand-bg-2/92 p-6 text-brand-text shadow-float backdrop-blur-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <p className="text-[0.7rem] uppercase tracking-[0.24em] text-brand-text-muted">О себе</p>
+            <h2 className="mt-3 font-display text-3xl leading-tight text-white">
+              {profile.name}
+              {profile.age > 0 ? <span>, {profile.age}</span> : null}
+            </h2>
+            <p className="mt-5 whitespace-pre-line text-base leading-7 text-brand-text">{profileSummary}</p>
+          </section>
         </div>,
         document.body,
       ) : null}
