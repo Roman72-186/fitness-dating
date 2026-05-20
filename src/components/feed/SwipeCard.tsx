@@ -141,7 +141,7 @@ export function SwipeCard({ profile, onLike, onSkip, disabled }: Props) {
             <X className="h-6 w-6" aria-hidden="true" />
           </button>
 
-          <div className="relative h-[100svh] w-screen" onClick={(event) => event.stopPropagation()}>
+          <div className="relative h-[100svh] w-screen">
             <Image
               src={photo}
               alt={profile.name}
@@ -174,7 +174,6 @@ export function SwipeCard({ profile, onLike, onSkip, disabled }: Props) {
 
           <section
             className="max-h-[84svh] w-full max-w-[28rem] overflow-y-auto rounded-[2rem] border border-white/12 bg-brand-bg-2/92 p-6 text-brand-text shadow-float backdrop-blur-xl"
-            onClick={(event) => event.stopPropagation()}
           >
             <p className="text-[0.7rem] uppercase tracking-[0.24em] text-brand-text-muted">О себе</p>
             <h2 className="mt-3 font-display text-3xl leading-tight text-white">
