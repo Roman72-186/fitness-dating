@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getAuthUser } from '@/lib/auth'
-import { getProfile, upsertProfile } from '@/lib/db'
+import { getProfile, resetProfileViews, upsertProfile } from '@/lib/db'
 import { invalidateProfile, invalidateAllProfiles } from '@/lib/redis'
 
 export async function GET(req: NextRequest) {
@@ -54,6 +54,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const profile = await upsertProfile({ telegram_id: userId, ...parsed.data })
+    await resetProfileViews(userId)
     await Promise.all([invalidateProfile(userId), invalidateAllProfiles()])
     return NextResponse.json({ ok: true, profile }, { status: 201 })
   } catch (err) {
@@ -94,6 +95,7 @@ export async function PUT(req: NextRequest) {
 
   try {
     const profile = await upsertProfile({ telegram_id: userId, ...parsed.data })
+    await resetProfileViews(userId)
     await Promise.all([invalidateProfile(userId), invalidateAllProfiles()])
     return NextResponse.json({ ok: true, profile })
   } catch (err) {

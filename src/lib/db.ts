@@ -101,6 +101,17 @@ export async function deleteProfile(userId: string): Promise<boolean> {
   return result
 }
 
+export async function resetProfileViews(userId: string): Promise<number> {
+  if (DEV_MODE) return 0
+  const result = await prisma.profileAction.deleteMany({
+    where: {
+      action: 'skip',
+      OR: [{ viewer_profile_id: userId }, { target_profile_id: userId }],
+    },
+  })
+  return result.count
+}
+
 export async function getProfile(userId: string): Promise<Profile | null> {
   if (DEV_MODE) {
     const { mockProfiles } = await import('./__mocks__/profiles')

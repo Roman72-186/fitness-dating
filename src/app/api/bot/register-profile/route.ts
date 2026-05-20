@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { upsertProfile, maskPhone } from '@/lib/db'
+import { upsertProfile, maskPhone, resetProfileViews } from '@/lib/db'
 import { invalidateProfile, invalidateAllProfiles } from '@/lib/redis'
 import { ensurePhotosInS3 } from '@/lib/s3'
 
@@ -153,6 +153,7 @@ export async function POST(req: NextRequest) {
       phone: d.phone,
       platform: d.platform,
     })
+    await resetProfileViews(d.bot_user_id)
 
     await Promise.all([invalidateProfile(d.bot_user_id), invalidateAllProfiles()])
 
