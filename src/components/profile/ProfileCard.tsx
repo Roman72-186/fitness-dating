@@ -7,6 +7,7 @@ import { AdminLogin } from '@/components/admin/AdminLogin'
 import { AdminStats } from '@/components/admin/AdminStats'
 import { UserRound } from 'lucide-react'
 import { useAuthStore } from '@/store/auth-store'
+import { returnToBot } from '@/lib/telegram-webapp'
 import type { Profile } from '@/types'
 
 type AdminMode = 'profile' | 'login' | 'stats'
@@ -128,6 +129,14 @@ export function ProfileCard() {
           </section>
         </div>
       </article>
+
+      <button
+        type="button"
+        onClick={returnToBot}
+        className="mt-4 flex min-h-12 w-full items-center justify-center rounded-[1.35rem] border border-white/18 bg-brand-bg-2/78 px-4 py-3 text-sm font-semibold text-brand-text shadow-panel backdrop-blur-md transition active:scale-[0.99]"
+      >
+        Вернуться в бот
+      </button>
     </div>
   )
 }
