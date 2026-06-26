@@ -15,7 +15,7 @@ const me: Profile = {
   active: true,
 }
 
-// Кандидат по умолчанию подходит me по gender (female).
+// Кандидат по умолчанию подходит me взаимно: female ищет male.
 function p(overrides: Partial<Profile> & { user_id: string }): Profile {
   return {
     ...me,
@@ -52,9 +52,9 @@ describe('buildFeed', () => {
     expect(result).toHaveLength(0)
   })
 
-  it('показывает кандидата подходящего gender, даже если candidate.interested_in не мой пол', () => {
+  it('не показывает кандидата, если candidate.interested_in не включает мой пол', () => {
     const result = buildFeed([p({ user_id: 'f', gender: 'female', interested_in: 'female' })], me, new Set())
-    expect(result).toHaveLength(1)
+    expect(result).toHaveLength(0)
   })
 
   it('показывает кандидата с interested_in=all, если его пол подходит мне', () => {
@@ -62,7 +62,7 @@ describe('buildFeed', () => {
     expect(result).toHaveLength(1)
   })
 
-  it('interested_in=all у me — показывает мужчин и женщин независимо от candidate.interested_in', () => {
+  it('interested_in=all у me — показывает мужчин и женщин, если я тоже подхожу candidate.interested_in', () => {
     const meAll = { ...me, interested_in: 'all' as const }
     const result = buildFeed(
       [
@@ -73,10 +73,11 @@ describe('buildFeed', () => {
       meAll,
       new Set(),
     )
-    expect(result).toHaveLength(3)
+    expect(result.map((x) => x.user_id)).toEqual(expect.arrayContaining(['f-male', 'm-male']))
+    expect(result.find((x) => x.user_id === 'f-female')).toBeUndefined()
   })
 
-  it('interested_in=all у me показывает всех по gender, не проверяя, кому подходит мой пол', () => {
+  it('interested_in=all у me не обходит фильтр видимости кандидата', () => {
     const meAll = { ...me, interested_in: 'all' as const }
     const result = buildFeed(
       [
@@ -87,7 +88,7 @@ describe('buildFeed', () => {
       new Set(),
     )
 
-    expect(result).toHaveLength(2)
+    expect(result).toHaveLength(0)
   })
 
   it('interested_in=all у me — сортирует совместимых мужчин и женщин по клубу и городу', () => {
@@ -133,9 +134,9 @@ describe('buildFeed', () => {
     const tier1Ids = resultIds.slice(0, 2)
 
     expect(tier1Ids).toEqual(expect.arrayContaining(['same-club-city-male', 'same-club-city-female']))
-    expect(resultIds.indexOf('same-club')).toBeGreaterThan(1)
-    expect(resultIds.indexOf('same-club')).toBeLessThan(resultIds.indexOf('same-city'))
-    expect(resultIds.indexOf('same-city')).toBeLessThan(resultIds.indexOf('other'))
+    expect(resultIds.indexOf('same-city')).toBeGreaterThan(1)
+    expect(resultIds.indexOf('same-city')).toBeLessThan(resultIds.indexOf('same-club'))
+    expect(resultIds.slice(3)).toEqual(expect.arrayContaining(['same-club', 'other']))
   })
 
   it('candidate.interested_in=all показывается, если gender кандидата подходит фильтру зрителя', () => {
@@ -147,11 +148,86 @@ describe('buildFeed', () => {
     expect(buildFeed([candidate], femaleViewer, new Set())).toHaveLength(1)
   })
 
-  it('candidate.interested_in не влияет на показ, если gender кандидата подходит фильтру зрителя', () => {
+  it('девушка ищет парня — показывает парня с interested_in=all', () => {
+    const femaleViewer = { ...me, user_id: 'female-viewer', gender: 'female' as const, interested_in: 'male' as const }
+    const candidate = p({ user_id: 'male-all', gender: 'male', interested_in: 'all' })
+
+    expect(buildFeed([candidate], femaleViewer, new Set())).toHaveLength(1)
+  })
+
+  it('candidate.interested_in влияет на показ, даже если gender кандидата подходит фильтру зрителя', () => {
     const candidate = p({ user_id: 'female-seeks-female', gender: 'female', interested_in: 'female' })
     const result = buildFeed([candidate], me, new Set())
 
-    expect(result).toHaveLength(1)
+    expect(result).toHaveLength(0)
+  })
+
+  it('парень ищет девушек — видит только девушек и показывается только девушкам', () => {
+    const maleViewer = { ...me, user_id: 'male-viewer', gender: 'male' as const, interested_in: 'female' as const }
+    const femaleViewer = { ...me, user_id: 'female-viewer', gender: 'female' as const, interested_in: 'male' as const }
+    const maleSeekingFemale = p({ user_id: 'male-seeking-female', gender: 'male', interested_in: 'female' })
+
+    expect(buildFeed([p({ user_id: 'female-seeking-male', gender: 'female', interested_in: 'male' }), maleSeekingFemale], maleViewer, new Set()))
+      .toHaveLength(1)
+    expect(buildFeed([maleSeekingFemale], femaleViewer, new Set())).toHaveLength(1)
+    expect(buildFeed([maleSeekingFemale], maleViewer, new Set())).toHaveLength(0)
+  })
+
+  it('парень ищет всех — видит всех взаимно подходящих и может показываться мужчинам и женщинам', () => {
+    const maleViewer = { ...me, user_id: 'male-viewer', gender: 'male' as const, interested_in: 'all' as const }
+    const femaleViewer = { ...me, user_id: 'female-viewer', gender: 'female' as const, interested_in: 'male' as const }
+    const maleSeekingMale = p({ user_id: 'male-seeking-male', gender: 'male', interested_in: 'male' })
+    const femaleSeekingMale = p({ user_id: 'female-seeking-male', gender: 'female', interested_in: 'male' })
+    const maleSeekingAll = p({ user_id: 'male-seeking-all', gender: 'male', interested_in: 'all' })
+
+    expect(buildFeed([maleSeekingMale, femaleSeekingMale], maleViewer, new Set()))
+      .toHaveLength(2)
+    expect(buildFeed([maleSeekingAll], maleViewer, new Set())).toHaveLength(1)
+    expect(buildFeed([maleSeekingAll], femaleViewer, new Set())).toHaveLength(1)
+  })
+
+  it('парень ищет парней — видит только парней и показывается только парням', () => {
+    const maleViewer = { ...me, user_id: 'male-viewer', gender: 'male' as const, interested_in: 'male' as const }
+    const femaleViewer = { ...me, user_id: 'female-viewer', gender: 'female' as const, interested_in: 'male' as const }
+    const maleSeekingMale = p({ user_id: 'male-seeking-male', gender: 'male', interested_in: 'male' })
+
+    expect(buildFeed([maleSeekingMale, p({ user_id: 'female-seeking-male', gender: 'female', interested_in: 'male' })], maleViewer, new Set()))
+      .toHaveLength(1)
+    expect(buildFeed([maleSeekingMale], maleViewer, new Set())).toHaveLength(1)
+    expect(buildFeed([maleSeekingMale], femaleViewer, new Set())).toHaveLength(0)
+  })
+
+  it('девушка ищет парней — видит только парней', () => {
+    const femaleViewer = { ...me, user_id: 'female-viewer', gender: 'female' as const, interested_in: 'male' as const }
+    const maleSeekingFemale = p({ user_id: 'male-seeking-female', gender: 'male', interested_in: 'female' })
+    const femaleSeekingFemale = p({ user_id: 'female-seeking-female', gender: 'female', interested_in: 'female' })
+
+    expect(buildFeed([maleSeekingFemale, femaleSeekingFemale], femaleViewer, new Set()))
+      .toHaveLength(1)
+  })
+
+  it('девушка ищет всех — видит всех взаимно подходящих и может показываться мужчинам и женщинам', () => {
+    const femaleViewer = { ...me, user_id: 'female-viewer', gender: 'female' as const, interested_in: 'all' as const }
+    const maleViewer = { ...me, user_id: 'male-viewer', gender: 'male' as const, interested_in: 'female' as const }
+    const maleSeekingFemale = p({ user_id: 'male-seeking-female', gender: 'male', interested_in: 'female' })
+    const femaleSeekingFemale = p({ user_id: 'female-seeking-female', gender: 'female', interested_in: 'female' })
+    const femaleSeekingAll = p({ user_id: 'female-seeking-all', gender: 'female', interested_in: 'all' })
+
+    expect(buildFeed([maleSeekingFemale, femaleSeekingFemale], femaleViewer, new Set()))
+      .toHaveLength(2)
+    expect(buildFeed([femaleSeekingAll], femaleViewer, new Set())).toHaveLength(1)
+    expect(buildFeed([femaleSeekingAll], maleViewer, new Set())).toHaveLength(1)
+  })
+
+  it('девушка ищет девушек — видит только девушек и показывается только девушкам', () => {
+    const femaleViewer = { ...me, user_id: 'female-viewer', gender: 'female' as const, interested_in: 'female' as const }
+    const maleViewer = { ...me, user_id: 'male-viewer', gender: 'male' as const, interested_in: 'female' as const }
+    const femaleSeekingFemale = p({ user_id: 'female-seeking-female', gender: 'female', interested_in: 'female' })
+
+    expect(buildFeed([femaleSeekingFemale, p({ user_id: 'male-seeking-female', gender: 'male', interested_in: 'female' })], femaleViewer, new Set()))
+      .toHaveLength(1)
+    expect(buildFeed([femaleSeekingFemale], femaleViewer, new Set())).toHaveLength(1)
+    expect(buildFeed([femaleSeekingFemale], maleViewer, new Set())).toHaveLength(0)
   })
 
   it('candidate.interested_in=all не обходит мой фильтр по полу', () => {
@@ -161,7 +237,7 @@ describe('buildFeed', () => {
     expect(result).toHaveLength(0)
   })
 
-  it('tier1 (клуб + город) стоит перед tier2 (клуб, другой город)', () => {
+  it('tier1 (клуб + город) стоит перед анкетой из другого города', () => {
     const t1 = p({ user_id: 't1', club: 'FitLife', city: 'Москва' })
     const t2 = p({ user_id: 't2', club: 'FitLife', city: 'Питер' })
     const result = buildFeed([t2, t1], me, new Set())
@@ -170,16 +246,16 @@ describe('buildFeed', () => {
     )
   })
 
-  it('tier2 (клуб, другой город) стоит перед tier3 (город, другой клуб)', () => {
+  it('tier2 (город, другой клуб) стоит перед анкетой из того же клуба, но другого города', () => {
     const t2 = p({ user_id: 't2', club: 'FitLife', city: 'Питер' })
     const t3 = p({ user_id: 't3', club: 'Other', city: 'Москва' })
     const result = buildFeed([t3, t2], me, new Set())
-    expect(result.findIndex((x) => x.user_id === 't2')).toBeLessThan(
-      result.findIndex((x) => x.user_id === 't3'),
+    expect(result.findIndex((x) => x.user_id === 't3')).toBeLessThan(
+      result.findIndex((x) => x.user_id === 't2'),
     )
   })
 
-  it('tier3 (город, другой клуб) стоит перед tier4 (всё остальное)', () => {
+  it('tier2 (город, другой клуб) стоит перед tier3 (всё остальное)', () => {
     const t3 = p({ user_id: 't3', club: 'Other', city: 'Москва' })
     const t4 = p({ user_id: 't4', club: 'Other', city: 'Питер' })
     const result = buildFeed([t4, t3], me, new Set())

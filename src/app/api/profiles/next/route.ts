@@ -23,6 +23,14 @@ export async function GET(req: NextRequest) {
       isGuest ? Promise.resolve(new Set<string>()) : fetchActedTargetIds(userId),
     ])
 
+    if (!isGuest && !me) {
+      return NextResponse.json({
+        ok: false,
+        error: 'PROFILE_REQUIRED',
+        message: 'Анкета не найдена. Сначала пройдите регистрацию в боте.',
+      }, { status: 403 })
+    }
+
     const profile = buildFeed(allProfiles, me, actedIds)
       .find((candidate) => !excludedIds.has(candidate.user_id))
 

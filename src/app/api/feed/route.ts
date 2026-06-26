@@ -19,6 +19,14 @@ export async function GET(req: NextRequest) {
       isGuest ? Promise.resolve(new Set<string>()) : fetchActedTargetIds(userId),
     ])
 
+    if (!isGuest && !me) {
+      return NextResponse.json({
+        ok: false,
+        error: 'PROFILE_REQUIRED',
+        message: 'Анкета не найдена. Сначала пройдите регистрацию в боте.',
+      }, { status: 403 })
+    }
+
     const feed = buildFeed(allProfiles, me, actedIds)
     const profiles = feed.slice(0, FEED_BATCH_SIZE)
 

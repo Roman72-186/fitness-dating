@@ -34,7 +34,7 @@ function parsePhotos(raw: unknown): string[] {
   return []
 }
 
-function toProfile(row: {
+type ProfileRow = {
   telegram_id: string
   name: string
   last_name?: string | null
@@ -49,7 +49,22 @@ function toProfile(row: {
   telegram_username?: string | null
   is_active: boolean
   is_blocked: boolean
-}): Profile {
+}
+
+function isCompleteProfileRow(row: ProfileRow): boolean {
+  return (
+    row.name.trim().length > 0 &&
+    row.age >= 18 &&
+    row.gender !== 'other' &&
+    row.city.trim().length > 0 &&
+    row.club.trim().length > 0 &&
+    row.about.trim().length > 0 &&
+    row.is_active &&
+    !row.is_blocked
+  )
+}
+
+function toProfile(row: ProfileRow): Profile {
   const photos = parsePhotos(row.photos)
   // Совместимость: если photos пустой, но есть photo_url — используем его
   const finalPhotos = photos.length > 0 ? photos : (row.photo_url ? [row.photo_url] : [])
@@ -101,24 +116,13 @@ export async function deleteProfile(userId: string): Promise<boolean> {
   return result
 }
 
-export async function resetProfileViews(userId: string): Promise<number> {
-  if (DEV_MODE) return 0
-  const result = await prisma.profileAction.deleteMany({
-    where: {
-      action: 'skip',
-      OR: [{ viewer_profile_id: userId }, { target_profile_id: userId }],
-    },
-  })
-  return result.count
-}
-
 export async function getProfile(userId: string): Promise<Profile | null> {
   if (DEV_MODE) {
     const { mockProfiles } = await import('./__mocks__/profiles')
     return mockProfiles.find((p) => p.user_id === userId) ?? null
   }
   const row = await prisma.user.findUnique({ where: { telegram_id: userId } })
-  return row ? toProfile(row) : null
+  return row && isCompleteProfileRow(row) ? toProfile(row) : null
 }
 
 export async function getAllProfiles(): Promise<Profile[]> {
@@ -127,7 +131,7 @@ export async function getAllProfiles(): Promise<Profile[]> {
     return mockProfiles.filter((p) => p.active && !p.is_blocked)
   }
   const rows = await prisma.user.findMany({ where: { is_active: true, is_blocked: false } })
-  return rows.map(toProfile)
+  return rows.filter(isCompleteProfileRow).map(toProfile)
 }
 
 export async function upsertProfile(data: {
@@ -277,18 +281,23 @@ export async function fetchIncomingLikes(userId: string): Promise<LikeWithPartne
   // Кто лайкнул меня
   const incoming = await prisma.profileAction.findMany({
     where: { target_profile_id: userId, action: 'like' },
-    select: { viewer_profile_id: true },
+    select: { viewer_profile_id: true, created_at: true },
   })
   if (incoming.length === 0) return []
 
   const likerIds = incoming.map((r) => r.viewer_profile_id)
+  const incomingLikedAt = new Map(incoming.map((r) => [r.viewer_profile_id, r.created_at.getTime()]))
 
   // Те на кого я уже ответил (любым действием)
   const myActions = await prisma.profileAction.findMany({
     where: { viewer_profile_id: userId, target_profile_id: { in: likerIds } },
-    select: { target_profile_id: true },
+    select: { target_profile_id: true, created_at: true },
   })
-  const alreadyActed = new Set(myActions.map((r) => r.target_profile_id))
+  const alreadyResponded = new Set(
+    myActions
+      .filter((r) => r.created_at.getTime() >= (incomingLikedAt.get(r.target_profile_id) ?? 0))
+      .map((r) => r.target_profile_id),
+  )
 
   // Мои мэтчи — исключить
   const myMatches = await prisma.match.findMany({
@@ -299,7 +308,7 @@ export async function fetchIncomingLikes(userId: string): Promise<LikeWithPartne
     myMatches.map((m) => (m.user_a_id === userId ? m.user_b_id : m.user_a_id))
   )
 
-  const candidateIds = likerIds.filter((id) => !alreadyActed.has(id) && !matched.has(id))
+  const candidateIds = likerIds.filter((id) => !alreadyResponded.has(id) && !matched.has(id))
   if (candidateIds.length === 0) return []
 
   const users = await prisma.user.findMany({

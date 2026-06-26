@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { upsertProfile, maskPhone, resetProfileViews } from '@/lib/db'
+import { upsertProfile, maskPhone } from '@/lib/db'
 import { invalidateProfile, invalidateAllProfiles } from '@/lib/redis'
 import { ensurePhotosInS3 } from '@/lib/s3'
 
 const BOT_WEBHOOK_SECRET = process.env.BOT_WEBHOOK_SECRET ?? ''
 
-const GENDER_MAP: Record<string, 'male' | 'female'> = {
+const GENDER_ALIASES: Record<string, 'male' | 'female'> = {
   male: 'male',
   female: 'female',
   м: 'male',
@@ -16,102 +16,136 @@ const GENDER_MAP: Record<string, 'male' | 'female'> = {
   мужчина: 'male',
   женщина: 'female',
   парень: 'male',
-  девушка: 'female',
   парнем: 'male',
-  девушкой: 'female',
   парнями: 'male',
+  девушка: 'female',
+  девушкой: 'female',
   девушками: 'female',
 }
 
-const INTERESTED_MAP: Record<string, 'male' | 'female' | 'all'> = {
-  ...GENDER_MAP,
+const INTERESTED_ALIASES: Record<string, 'male' | 'female' | 'all'> = {
+  ...GENDER_ALIASES,
+  any: 'all',
   all: 'all',
   любой: 'all',
   любого: 'all',
+  все: 'all',
   всех: 'all',
+  'все равно': 'all',
   'не важно': 'all',
-  'неважно': 'all',
+  неважно: 'all',
   оба: 'all',
 }
 
-// WATBOT шлёт варианты вида "🙋‍♂️ Мужской" или "С девушками" — чистим от эмодзи/знаков
-// и матчим по отдельным словам (не по подстроке, чтобы 'м' в "девушками" не цеплялось)
-const tokenize = (v: unknown): string[] =>
-  String(v ?? '')
+function tokenize(value: unknown): string[] {
+  return String(value ?? '')
     .toLowerCase()
     .replace(/[^a-zа-яё\s]/gi, ' ')
     .split(/\s+/)
     .filter(Boolean)
-
-const matchByToken = <T>(v: unknown, map: Record<string, T>): T | unknown => {
-  const tokens = tokenize(v)
-  // Сначала точное совпадение всей строки (для коротких "м"/"ж")
-  const joined = tokens.join(' ')
-  if (joined in map) return map[joined]
-  // Потом — по любому отдельному токену
-  for (const t of tokens) {
-    if (t in map) return map[t]
-  }
-  return v
 }
 
-const normalizeGender = (v: unknown) => matchByToken(v, GENDER_MAP)
-const normalizeInterested = (v: unknown) => matchByToken(v, INTERESTED_MAP)
+function normalizeText(value: unknown): string {
+  return tokenize(value).join(' ')
+}
 
-// age приходит из WATBOT строкой — приводим к числу
-const ageCoerce = z.preprocess((v) => {
-  if (typeof v === 'number') return v
-  const n = parseInt(String(v ?? ''), 10)
-  return Number.isFinite(n) ? n : v
+function matchAlias<T>(value: unknown, map: Record<string, T>): T | undefined {
+  const normalized = normalizeText(value)
+  if (!normalized) return undefined
+  if (normalized in map) return map[normalized]
+
+  for (const token of normalized.split(' ')) {
+    if (token in map) return map[token]
+  }
+
+  return undefined
+}
+
+function normalizeGender(value: unknown): unknown {
+  const alias = matchAlias(value, GENDER_ALIASES)
+  if (alias) return alias
+
+  const normalized = normalizeText(value)
+  if (normalized.includes('муж') || normalized.includes('парн')) return 'male'
+  if (normalized.includes('жен') || normalized.includes('девуш')) return 'female'
+
+  return value
+}
+
+function normalizeInterested(value: unknown): unknown {
+  const alias = matchAlias(value, INTERESTED_ALIASES)
+  if (alias) return alias
+
+  const normalized = normalizeText(value)
+  if (
+    normalized.includes('any') ||
+    normalized.includes('all') ||
+    normalized.includes('все равно') ||
+    normalized.includes('не важно') ||
+    normalized.includes('неважно')
+  ) {
+    return 'all'
+  }
+
+  if (normalized.includes('парн') || normalized.includes('муж')) return 'male'
+  if (normalized.includes('девуш') || normalized.includes('жен')) return 'female'
+
+  return value
+}
+
+const ageCoerce = z.preprocess((value) => {
+  if (typeof value === 'number') return value
+  const parsed = parseInt(String(value ?? ''), 10)
+  return Number.isFinite(parsed) ? parsed : value
 }, z.number().int().min(18).max(100))
 
-// photos может прийти как массив, JSON-строка массива или одна URL-строка
-const photosCoerce = z.preprocess((v) => {
-  if (Array.isArray(v)) return v
-  if (typeof v === 'string') {
-    const s = v.trim()
-    if (!s) return []
-    if (s.startsWith('[')) {
-      try { return JSON.parse(s) } catch { return [s] }
+const photosCoerce = z.preprocess((value) => {
+  if (Array.isArray(value)) return value
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (!trimmed) return []
+    if (trimmed.startsWith('[')) {
+      try {
+        return JSON.parse(trimmed)
+      } catch {
+        return [trimmed]
+      }
     }
-    return s.split(/[\s,]+/).filter(Boolean)
+    return trimmed.split(/[\s,]+/).filter(Boolean)
   }
+
   return []
 }, z.array(z.string().url()).max(5).default([]))
 
-// Пустые строки в опциональных полях → undefined
-const emptyToUndef = (v: unknown) => {
-  if (typeof v === 'string' && v.trim() === '') return undefined
-  return v
+function emptyToUndefined(value: unknown): unknown {
+  if (typeof value === 'string' && value.trim() === '') return undefined
+  return value
 }
 
-// telegram_username: убрать @, пустую → undefined
-const usernameCoerce = (v: unknown) => {
-  if (typeof v !== 'string') return v
-  const s = v.trim().replace(/^@+/, '')
-  return s === '' ? undefined : s
+function usernameCoerce(value: unknown): unknown {
+  if (typeof value !== 'string') return value
+  const normalized = value.trim().replace(/^@+/, '')
+  return normalized === '' ? undefined : normalized
 }
 
 const RegisterSchema = z.object({
   platform: z.string().default('telegram'),
   bot_user_id: z.string().min(1),
   first_name: z.string().min(1).max(50),
-  last_name: z.preprocess(emptyToUndef, z.string().max(50).optional()),
+  last_name: z.preprocess(emptyToUndefined, z.string().max(50).optional()),
   age: ageCoerce,
   gender: z.preprocess(normalizeGender, z.enum(['male', 'female'])),
   interested_in: z.preprocess(normalizeInterested, z.enum(['male', 'female', 'all'])).default('all'),
   city: z.string().min(1).max(100),
   club: z.string().min(1).max(100),
   about: z.string().min(1).max(500),
-  preferences: z.preprocess(emptyToUndef, z.string().max(500).optional()),
-  phone: z.preprocess(emptyToUndef, z.string().max(30).optional()),
+  preferences: z.preprocess(emptyToUndefined, z.string().max(500).optional()),
+  phone: z.preprocess(emptyToUndefined, z.string().max(30).optional()),
   telegram_username: z.preprocess(usernameCoerce, z.string().max(50).optional()),
   photos: photosCoerce,
 })
 
-// POST /api/bot/register-profile
-// Защита: заголовок x-webhook-secret (не JWT)
-// Этот endpoint в middleware.ts добавлен в publicPaths (/api/bot)
 export async function POST(req: NextRequest) {
   const secret = req.headers.get('x-webhook-secret')
   if (!BOT_WEBHOOK_SECRET || secret !== BOT_WEBHOOK_SECRET) {
@@ -120,47 +154,62 @@ export async function POST(req: NextRequest) {
   }
 
   let body: unknown
-  try { body = await req.json() } catch {
-    return NextResponse.json({ ok: false, error: 'VALIDATION_ERROR', message: 'Невалидный JSON' }, { status: 400 })
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json(
+      { ok: false, error: 'VALIDATION_ERROR', message: 'Невалидный JSON' },
+      { status: 400 },
+    )
   }
 
   const parsed = RegisterSchema.safeParse(body)
   if (!parsed.success) {
-    const details = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`)
+    const details = parsed.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`)
     console.warn('[register-profile] Ошибка валидации:', details)
+
+    if (typeof body === 'object' && body !== null) {
+      const rawInterestedIn =
+        'interested_in' in body ? String((body as { interested_in?: unknown }).interested_in ?? '') : ''
+      if (rawInterestedIn) {
+        console.warn(`[register-profile] raw interested_in="${rawInterestedIn}"`)
+      }
+    }
+
     return NextResponse.json({ ok: false, error: 'VALIDATION_ERROR', details }, { status: 400 })
   }
 
-  const d = parsed.data
-  console.log(`[register-profile] bot_user_id=${d.bot_user_id} phone=${maskPhone(d.phone)}`)
+  const data = parsed.data
+  console.log(`[register-profile] bot_user_id=${data.bot_user_id} phone=${maskPhone(data.phone)}`)
 
   try {
-    // Заливаем все внешние фото в наш S3, чтобы не зависеть от tempfile-хостов и whitelist'ов remotePatterns
-    const photosInS3 = await ensurePhotosInS3(d.bot_user_id, d.photos)
+    const photosInS3 = await ensurePhotosInS3(data.bot_user_id, data.photos)
 
     const profile = await upsertProfile({
-      telegram_id: d.bot_user_id,
-      name: d.first_name,
-      last_name: d.last_name,
-      age: d.age,
-      gender: d.gender,
-      interested_in: d.interested_in,
-      about: d.preferences ? `${d.about}\n${d.preferences}` : d.about,
+      telegram_id: data.bot_user_id,
+      name: data.first_name,
+      last_name: data.last_name,
+      age: data.age,
+      gender: data.gender,
+      interested_in: data.interested_in,
+      about: data.preferences ? `${data.about}\n${data.preferences}` : data.about,
       photos: photosInS3,
-      city: d.city,
-      club: d.club,
-      telegram_username: d.telegram_username,
-      phone: d.phone,
-      platform: d.platform,
+      city: data.city,
+      club: data.club,
+      telegram_username: data.telegram_username,
+      phone: data.phone,
+      platform: data.platform,
     })
-    await resetProfileViews(d.bot_user_id)
 
-    await Promise.all([invalidateProfile(d.bot_user_id), invalidateAllProfiles()])
+    await Promise.all([invalidateProfile(data.bot_user_id), invalidateAllProfiles()])
 
-    console.log(`[register-profile] profile_id=${d.bot_user_id} сохранён`)
+    console.log(`[register-profile] profile_id=${data.bot_user_id} сохранён`)
     return NextResponse.json({ ok: true, profile_id: profile.user_id, message: 'Profile saved successfully' })
   } catch (err) {
     console.error('[register-profile] Ошибка:', err)
-    return NextResponse.json({ ok: false, error: 'INTERNAL_ERROR', message: 'Ошибка сохранения профиля' }, { status: 500 })
+    return NextResponse.json(
+      { ok: false, error: 'INTERNAL_ERROR', message: 'Ошибка сохранения профиля' },
+      { status: 500 },
+    )
   }
 }

@@ -14,6 +14,22 @@ type AdminMode = 'profile' | 'login' | 'stats'
 
 const ADMIN_TAP_LIMIT = 3
 const ADMIN_TAP_WINDOW_MS = 1200
+const PROFILE_LOAD_TIMEOUT_MS = 8000
+
+async function fetchProfileWithTimeout(token: string): Promise<Response> {
+  const controller = new AbortController()
+  const timeout = window.setTimeout(() => controller.abort(), PROFILE_LOAD_TIMEOUT_MS)
+
+  try {
+    return await fetch('/api/profile', {
+      cache: 'no-store',
+      headers: { Authorization: `Bearer ${token}` },
+      signal: controller.signal,
+    })
+  } finally {
+    window.clearTimeout(timeout)
+  }
+}
 
 export function ProfileCard() {
   const { token } = useAuthStore()
@@ -27,9 +43,7 @@ export function ProfileCard() {
     if (!token) return
     setLoading(true)
     try {
-      const res = await fetch('/api/profile', {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+      const res = await fetchProfileWithTimeout(token)
       const data = await res.json()
       setProfile(data.profile ?? null)
     } catch {

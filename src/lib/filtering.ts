@@ -14,17 +14,20 @@ function isOtherClub(club?: string | null): boolean {
   return (club ?? '').trim().toLowerCase() === 'другой клуб'
 }
 
-function isCompatible(candidate: Profile, me: Profile): boolean {
-  return me.interested_in === 'all' || candidate.gender === me.interested_in
+function acceptsGender(profile: Profile, gender: Profile['gender']): boolean {
+  return profile.interested_in === 'all' || profile.interested_in === gender
 }
 
-// 4-тировая приоритизация:
+function isCompatible(candidate: Profile, me: Profile): boolean {
+  return acceptsGender(me, candidate.gender) && acceptsGender(candidate, me.gender)
+}
+
+// 3-тировая приоритизация:
 //   tier1 — тот же клуб + город
-//   tier2 — тот же клуб
-//   tier3 — тот же город
-//   tier4 — остальные
-// Фильтр по полу смотрит на выбор зрителя и gender кандидата.
-// candidate.interested_in влияет только на выдачу самого кандидата, когда ленту строят для него.
+//   tier2 — тот же город
+//   tier3 — остальные
+// Фильтр по полу взаимный: зритель должен искать пол кандидата,
+// а кандидат должен искать пол зрителя. interested_in=all подходит всем.
 // Если me.club = "Другой клуб" — tier1 и tier2 пропускаются.
 // Если candidate.club = "Другой клуб" — не считается совпадением клуба.
 // me=null — гостевой режим: все активные незаблокированные без фильтрации.
@@ -52,7 +55,6 @@ export function buildFeed(
   const tier1: Profile[] = []
   const tier2: Profile[] = []
   const tier3: Profile[] = []
-  const tier4: Profile[] = []
 
   for (const p of candidates) {
     const sameCity = !!p.city && p.city === me.city
@@ -60,10 +62,9 @@ export function buildFeed(
       !!p.club && p.club === me.club && !isOtherClub(p.club) && !myClubIsOther
 
     if (sameClub && sameCity) tier1.push(p)
-    else if (sameClub) tier2.push(p)
-    else if (sameCity) tier3.push(p)
-    else tier4.push(p)
+    else if (sameCity) tier2.push(p)
+    else tier3.push(p)
   }
 
-  return [...shuffle(tier1), ...shuffle(tier2), ...shuffle(tier3), ...shuffle(tier4)]
+  return [...shuffle(tier1), ...shuffle(tier2), ...shuffle(tier3)]
 }

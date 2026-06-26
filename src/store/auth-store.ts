@@ -19,7 +19,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   loading: true,
   error: null,
   hasProfile: null,
-  setAuth: (token, userId) => set({ token, userId, loading: false, error: null }),
+  setAuth: (token, userId) => set({ token, userId, loading: false, error: null, hasProfile: null }),
   setLoading: (v) => set({ loading: v }),
   setError: (e) => set({ error: e, loading: false }),
   setHasProfile: (v) => set({ hasProfile: v }),

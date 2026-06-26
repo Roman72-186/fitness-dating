@@ -55,6 +55,33 @@ function GroupList({ title, rows }: { title: string; rows: GroupRow[] }) {
   )
 }
 
+function ResetOption({
+  checked,
+  description,
+  label,
+  onChange,
+}: {
+  checked: boolean
+  description: string
+  label: string
+  onChange: (checked: boolean) => void
+}) {
+  return (
+    <label className="flex items-start gap-3 rounded-2xl border border-white/10 bg-brand-bg px-4 py-3">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+        className="mt-1 h-4 w-4 accent-brand-accent"
+      />
+      <span>
+        <span className="block text-sm font-semibold text-brand-text">{label}</span>
+        <span className="mt-1 block text-xs leading-5 text-brand-text-muted">{description}</span>
+      </span>
+    </label>
+  )
+}
+
 export function AdminStats({ token, onBack }: Props) {
   const [stats, setStats] = useState<AdminStatsPayload | null>(null)
   const [loading, setLoading] = useState(true)
@@ -63,6 +90,9 @@ export function AdminStats({ token, onBack }: Props) {
   const [resetLoading, setResetLoading] = useState(false)
   const [resetError, setResetError] = useState<string | null>(null)
   const [resetSuccess, setResetSuccess] = useState<string | null>(null)
+  const [resetSkips, setResetSkips] = useState(true)
+  const [resetLikes, setResetLikes] = useState(false)
+  const [resetMatches, setResetMatches] = useState(false)
 
   const fetchStats = useCallback(async () => {
     setLoading(true)
@@ -93,6 +123,12 @@ export function AdminStats({ token, onBack }: Props) {
 
   async function handleResetViews(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault()
+    if (!resetSkips && !resetLikes && !resetMatches) {
+      setResetError('Выбери, что именно сбросить')
+      setResetSuccess(null)
+      return
+    }
+
     setResetLoading(true)
     setResetError(null)
     setResetSuccess(null)
@@ -104,7 +140,7 @@ export function AdminStats({ token, onBack }: Props) {
           Authorization: `Bearer ${token}`,
           'content-type': 'application/json',
         },
-        body: JSON.stringify({ telegramId }),
+        body: JSON.stringify({ telegramId, resetSkips, resetLikes, resetMatches }),
       })
       const data: unknown = await res.json()
 
@@ -177,12 +213,33 @@ export function AdminStats({ token, onBack }: Props) {
                 />
               </label>
 
+              <div className="space-y-2">
+                <ResetOption
+                  checked={resetSkips}
+                  onChange={setResetSkips}
+                  label="Пропуски"
+                  description="Вернуть в ленту анкеты, которые пользователь скипнул."
+                />
+                <ResetOption
+                  checked={resetLikes}
+                  onChange={setResetLikes}
+                  label="Лайки"
+                  description="Удалить исходящие лайки пользователя, чтобы эти анкеты снова могли появиться."
+                />
+                <ResetOption
+                  checked={resetMatches}
+                  onChange={setResetMatches}
+                  label="Мэтчи"
+                  description="Удалить взаимные пары пользователя из раздела мэтчей."
+                />
+              </div>
+
               {resetError ? <p className="text-sm text-brand-skip">{resetError}</p> : null}
               {resetSuccess ? <p className="text-sm text-brand-accent">{resetSuccess}</p> : null}
 
               <button
                 type="submit"
-                disabled={resetLoading || telegramId.length === 0}
+                disabled={resetLoading || telegramId.length === 0 || (!resetSkips && !resetLikes && !resetMatches)}
                 className="min-h-12 w-full rounded-2xl bg-brand-accent px-4 py-3 text-sm font-semibold text-brand-bg transition active:scale-[0.98] disabled:opacity-50"
               >
                 {resetLoading ? 'Сбрасываем' : 'Сбросить просмотры'}
