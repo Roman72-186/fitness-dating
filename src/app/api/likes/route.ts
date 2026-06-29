@@ -26,7 +26,10 @@ export async function GET(req: NextRequest) {
         active: true,
       },
     }))
-    return NextResponse.json({ ok: true, likes })
+    return NextResponse.json(
+      { ok: true, likes },
+      { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } },
+    )
   } catch (err) {
     console.error('[api/likes]', err)
     return NextResponse.json({ ok: false, error: 'INTERNAL_ERROR', message: 'Ошибка загрузки лайков' }, { status: 500 })

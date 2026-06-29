@@ -58,6 +58,7 @@ export function LikesScreen() {
     setLoading(true)
     try {
       const res = await fetch('/api/likes', {
+        cache: 'no-store',
         headers: { Authorization: `Bearer ${token}` },
       })
       const data = await res.json()

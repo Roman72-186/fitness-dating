@@ -25,6 +25,7 @@ export function MatchesScreen() {
     setLoading(true)
     try {
       const res = await fetch('/api/matches', {
+        cache: 'no-store',
         headers: { Authorization: `Bearer ${token}` },
       })
       const data = await res.json()

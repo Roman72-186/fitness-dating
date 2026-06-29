@@ -35,7 +35,10 @@ export async function GET(req: NextRequest) {
         telegram_username: m.telegram_username,
       }
     })
-    return NextResponse.json({ ok: true, matches })
+    return NextResponse.json(
+      { ok: true, matches },
+      { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } },
+    )
   } catch (err) {
     console.error('[api/matches]', err)
     return NextResponse.json({ ok: false, error: 'INTERNAL_ERROR', message: 'Ошибка загрузки мэтчей' }, { status: 500 })

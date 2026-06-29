@@ -29,12 +29,12 @@ export function BottomNav() {
   useEffect(() => {
     if (!token) return
 
-    fetch('/api/likes', { headers: { Authorization: `Bearer ${token}` } })
+    fetch('/api/likes', { cache: 'no-store', headers: { Authorization: `Bearer ${token}` } })
       .then((response) => response.json())
       .then((data) => setLikesCount(data.likes?.length ?? 0))
       .catch(() => {})
 
-    fetch('/api/profile/me', { headers: { Authorization: `Bearer ${token}` } })
+    fetch('/api/profile/me', { cache: 'no-store', headers: { Authorization: `Bearer ${token}` } })
       .then((response) => (response.ok ? response.json() : null))
       .then((data) => {
         if (!data?.ok) return
