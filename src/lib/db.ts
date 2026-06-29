@@ -116,6 +116,28 @@ export async function deleteProfile(userId: string): Promise<boolean> {
   return result
 }
 
+export interface ClearedProfileInteractions {
+  actions: number
+  matches: number
+}
+
+// Очистка истории связей без удаления самой анкеты.
+// Сохранение анкеты трактуем как полную замену текущего профиля и его истории.
+export async function clearProfileInteractions(userId: string): Promise<ClearedProfileInteractions> {
+  if (DEV_MODE) return { actions: 0, matches: 0 }
+
+  const [matches, actions] = await prisma.$transaction([
+    prisma.match.deleteMany({
+      where: { OR: [{ user_a_id: userId }, { user_b_id: userId }] },
+    }),
+    prisma.profileAction.deleteMany({
+      where: { OR: [{ viewer_profile_id: userId }, { target_profile_id: userId }] },
+    }),
+  ])
+
+  return { actions: actions.count, matches: matches.count }
+}
+
 export async function getProfile(userId: string): Promise<Profile | null> {
   if (DEV_MODE) {
     const { mockProfiles } = await import('./__mocks__/profiles')
@@ -165,7 +187,7 @@ export async function upsertProfile(data: {
     create: {
       telegram_id: data.telegram_id,
       name: data.name,
-      last_name: data.last_name,
+      last_name: data.last_name ?? null,
       age: data.age,
       gender: data.gender,
       interested_in: data.interested_in,
@@ -174,15 +196,15 @@ export async function upsertProfile(data: {
       photo_url: data.photos[0] ?? '',
       city: data.city,
       club: data.club,
-      telegram_username: data.telegram_username,
-      phone: data.phone,
+      telegram_username: data.telegram_username ?? null,
+      phone: data.phone ?? null,
       platform: data.platform ?? 'telegram',
       is_active: true,
       is_blocked: false,
     },
     update: {
       name: data.name,
-      last_name: data.last_name,
+      last_name: data.last_name ?? null,
       age: data.age,
       gender: data.gender,
       interested_in: data.interested_in,
@@ -191,9 +213,8 @@ export async function upsertProfile(data: {
       photo_url: data.photos[0] ?? '',
       city: data.city,
       club: data.club,
-      telegram_username: data.telegram_username,
-      // phone обновляется только если передан
-      ...(data.phone !== undefined ? { phone: data.phone } : {}),
+      telegram_username: data.telegram_username ?? null,
+      phone: data.phone ?? null,
       platform: data.platform ?? 'telegram',
     },
   })

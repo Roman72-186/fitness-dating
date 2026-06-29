@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { upsertProfile, maskPhone } from '@/lib/db'
+import { clearProfileInteractions, upsertProfile, maskPhone } from '@/lib/db'
 import { invalidateProfile, invalidateAllProfiles } from '@/lib/redis'
 import { ensurePhotosInS3 } from '@/lib/s3'
 
@@ -184,6 +184,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const photosInS3 = await ensurePhotosInS3(data.bot_user_id, data.photos)
+    const cleared = await clearProfileInteractions(data.bot_user_id)
 
     const profile = await upsertProfile({
       telegram_id: data.bot_user_id,
@@ -203,8 +204,16 @@ export async function POST(req: NextRequest) {
 
     await Promise.all([invalidateProfile(data.bot_user_id), invalidateAllProfiles()])
 
-    console.log(`[register-profile] profile_id=${data.bot_user_id} сохранён`)
-    return NextResponse.json({ ok: true, profile_id: profile.user_id, message: 'Profile saved successfully' })
+    console.log(
+      `[register-profile] profile_id=${data.bot_user_id} сохранён` +
+      (cleared ? `, очищено действий=${cleared.actions}, мэтчей=${cleared.matches}` : ''),
+    )
+    return NextResponse.json({
+      ok: true,
+      profile_id: profile.user_id,
+      cleared,
+      message: 'Profile saved successfully',
+    })
   } catch (err) {
     console.error('[register-profile] Ошибка:', err)
     return NextResponse.json(

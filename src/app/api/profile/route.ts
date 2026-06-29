@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getAuthUser } from '@/lib/auth'
-import { getProfile, upsertProfile } from '@/lib/db'
+import { clearProfileInteractions, getProfile, upsertProfile } from '@/lib/db'
 import { invalidateProfile, invalidateAllProfiles } from '@/lib/redis'
 
 export async function GET(req: NextRequest) {
@@ -53,6 +53,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    await clearProfileInteractions(userId)
     const profile = await upsertProfile({ telegram_id: userId, ...parsed.data })
     await Promise.all([invalidateProfile(userId), invalidateAllProfiles()])
     return NextResponse.json({ ok: true, profile }, { status: 201 })
@@ -73,7 +74,7 @@ const ProfileUpdateSchema = z.object({
   city: z.string().max(100).default(''),
   club: z.string().max(100).default(''),
   telegram_username: z.string().max(50).optional(),
-  // phone намеренно отсутствует — обновляется только через /api/bot/register-profile
+  phone: z.string().optional(),
 })
 
 export async function PUT(req: NextRequest) {
@@ -93,6 +94,7 @@ export async function PUT(req: NextRequest) {
   }
 
   try {
+    await clearProfileInteractions(userId)
     const profile = await upsertProfile({ telegram_id: userId, ...parsed.data })
     await Promise.all([invalidateProfile(userId), invalidateAllProfiles()])
     return NextResponse.json({ ok: true, profile })
