@@ -134,9 +134,20 @@ npm run gen-token 270703004
 
 ### Загрузка фото
 
-`POST /api/upload` + `src/lib/s3.ts` — S3-совместимое хранилище (TimeWeb S3). URL строится через `S3_PUBLIC_BASE_URL` или `S3_ENDPOINT/S3_BUCKET/key`. Экспорты `s3.ts`: `uploadProfilePhoto`, `ensurePhotosInS3` (скачивает фото с чужого адреса и перекладывает в бакет — вызывается при регистрации анкеты), `isManagedS3Url`.
+`POST /api/upload` + `src/lib/s3.ts` — S3-совместимое хранилище. URL строится через `S3_PUBLIC_BASE_URL` или `S3_ENDPOINT/S3_BUCKET/key`. Экспорты `s3.ts`: `uploadProfilePhoto`, `ensurePhotosInS3` (скачивает фото с чужого адреса и перекладывает в бакет — вызывается при регистрации анкеты), `isManagedS3Url`.
 
-`remotePatterns` в `next.config.mjs` разрешает пять хостов: `s3.twcstorage.ru`, `storage.watbot.ru`, `i.pravatar.cc`, `**.telegram.org`, `**.supabase.co`. Новый источник фото без записи здесь даст сломанные картинки в `next/image`.
+**Хранилищ сейчас два, и это не задумка, а незавершённый переезд** (замер 17.08.2026, подробности — `../MIGRATION-RUNBOOK.md`, часть 2):
+
+| Где лежит | Ссылок в `photo_url` | Пишется ли сейчас |
+|---|---|---|
+| диск сервера, отдаётся nginx `fm_photos` по `fit.assaru.space/photos/…` | 431 | нет, каталог заморожен 08.08 |
+| Object Storage Selectel (`…selstorage.ru`, бакет `s3-apparchi`, регион ru-3) | 22 | да, сюда идут все новые загрузки |
+| `tempfile.redpandaai.co` — мёртвый временный хостинг | 5 | нет |
+| TimeWeb `s3.twcstorage.ru` — прежнее хранилище | 0 | нет |
+
+Важное следствие: 431 фотография существует только на диске VPS в `/opt/fitmatch-photos/files` (1356 файлов, 284 МБ). Внешней копии у них нет. **Не удалять этот каталог и не гасить `fm_photos`**, пока файлы не перелиты в бакет и ссылки в базе не переписаны.
+
+`remotePatterns` в `next.config.mjs` разрешает семь хостов: `fit.assaru.space`, `b44804bc-…selstorage.ru`, `s3.twcstorage.ru`, `storage.watbot.ru`, `i.pravatar.cc`, `**.telegram.org`, `**.supabase.co`. Новый источник фото без записи здесь даст сломанные картинки в `next/image`. Первые два хоста до 17.08.2026 были только на сервере и отсутствовали в репозитории — деплой из локальной копии погасил бы все фото; сейчас конфиг сведён.
 
 ### Структура страниц
 
@@ -164,7 +175,9 @@ npm run gen-token 270703004
 
 ## Деплой
 
-**Прод:** `https://fit.assaru.space`, Docker Compose + Traefik, VPS 89.23.96.254. Контейнеры — `fm_app` (Next.js, `output: 'standalone'`, лимит 512 МБ) и `fm_db` (postgres:16-alpine, том `fm_postgres_data`). Traefik берётся из внешней сети `web`, домен подставляется переменной `DOMAIN` в labels.
+**Прод:** `https://fit.assaru.space`, Docker Compose + Traefik, **VPS 139.100.237.57** (Selectel; проверено 17.08.2026). Контейнеры — `fm_app` (Next.js, `output: 'standalone'`, лимит 512 МБ) и `fm_db` (postgres:16-alpine, том `fm_postgres_data`). Traefik берётся из внешней сети `web`, домен подставляется переменной `DOMAIN` в labels. Рядом на том же хосте живёт `fm_photos` — отдельный nginx из `/opt/fitmatch-photos`, раздаёт старые фото по пути `/photos` (см. «Загрузка фото»).
+
+Старый хост `89.23.96.254` выведен из работы: на 17.08.2026 он не отвечает ни на 22, ни на 80, ни на 443 порту. Все упоминания этого адреса в старых заметках читать как историю.
 
 ```bash
 # Сборка перед деплоем
@@ -178,11 +191,13 @@ docker compose -f docker-compose.prod.yml logs --tail=50 app
 
 `/home/fitness-dating` на сервере — **не git-репозиторий**, `git pull` там не работает. Путь деплоя: локально прогнать `lint`/`test`/`build`, закоммитить, скопировать изменённые файлы в `/home/fitness-dating/`, пересобрать контейнер. После деплоя — `https://fit.assaru.space/api/health` и логи `fm_app` первые 30 секунд.
 
-### Второй экземпляр — риск раздвоения
+### Дубля больше нет
 
-По состоянию на 04.08.2026 (`../MIGRATION-RUNBOOK.md`, часть 1 и 2 не выполнены) существует полная копия приложения на `139.100.237.57` с теми же контейнерами `fm_app`/`fm_db`, тем же ярлыком Traefik `Host(fit.assaru.space)` и тем же `BOT_WEBHOOK_SECRET`. Раздельная у копии только PostgreSQL — S3, Redis, Supabase и токен бота общие. Значит запрос на IP копии с заголовком `Host: fit.assaru.space` зарегистрирует анкету там, а не в боевой базе. Перед любыми работами с доменом или вебхуками читать runbook и сверять фактическое состояние серверов.
+С 04.08 по 17.08.2026 существовали два живых экземпляра приложения с одинаковым ярлыком Traefik, и главным риском было раздвоение записи по двум базам. **Переезд состоялся, дубль снят:** экземпляр остался один, на `139.100.237.57`, старый хост недоступен. Записывать анкеты в две базы больше некуда.
 
-**Нельзя** делать `docker compose down` в `/home/portfolio-saas` на 89.23.96.254: Traefik принадлежит compose-проекту Apparchi, но через него ходят и FitMatch, и `strekoza.assaru.space`. Гасить только точечно — `docker stop <контейнер>`.
+Риск вернётся при следующем переезде — процедура с понижением TTL и остановкой `fm_app` в окне лежит в `../MIGRATION-RUNBOOK.md`, часть 1.
+
+**Нельзя** делать `docker compose down` в `/home/portfolio-saas`: Traefik принадлежит compose-проекту Apparchi, но через него ходят и FitMatch, и `strekoza.assaru.space`. Гасить только точечно — `docker stop <контейнер>`.
 
 Prisma на проде использует `linux-musl-openssl-3.0.x` бинарник (Alpine). `binaryTargets` в `prisma/schema.prisma` уже настроены.
 
@@ -190,10 +205,10 @@ Prisma на проде использует `linux-musl-openssl-3.0.x` бина�
 
 ### SSH
 
-SSH-псевдоним для `89.23.96.254` в `~/.ssh/config` не настроен по умолчанию. Добавить вручную:
+SSH-псевдоним для прода в `~/.ssh/config` не настроен по умолчанию. Добавить вручную:
 ```
 Host vps-fitness
-    HostName 89.23.96.254
+    HostName 139.100.237.57
     User root
     IdentityFile ~/.ssh/id_ed25519
     ServerAliveInterval 60
@@ -240,3 +255,7 @@ NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY  # legacy, Supabase Storage
 ```
 
 Хранилище фото: в БД лежат **абсолютные ссылки** (`users.photos`, `users.photo_url`), а не ключи объектов. Поэтому смена бакета — всегда две операции: файлы и база. Удаления объектов из S3 в коде нет ни одного, фоновых заданий тоже.
+
+Раз хранилища сейчас два, запрос «заменить старый base-url на новый» закроет только часть строк. Любую правку ссылок писать сразу под оба префикса — локальный `fit.assaru.space/photos` и селектеловский.
+
+В серверном `/home/fitness-dating/.env` блок `S3_*` записан **дважды** (на 17.08.2026). Побеждает нижняя копия: поправишь верхнюю — ничего не изменится. Дубли стоит вычистить.
